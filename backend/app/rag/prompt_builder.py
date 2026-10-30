@@ -3,7 +3,7 @@ from html import escape
 from app.llm.base import ChatMessage
 from app.rag.retriever import RetrievedChunk
 
-NOT_FOUND_TOKEN = "NOT_FOUND"
+NOT_FOUND_TOKEN = "NOT_FOUND"  # noqa: S105 - a response marker, not a secret
 
 SYSTEM_PROMPT = f"""You are an AI research assistant. Answer the user's question using only the \
 reference material supplied in the <sources> block of their latest message.

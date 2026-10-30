@@ -48,9 +48,3 @@ httpx==0.28.1
 tenacity==9.1.4
 structlog==26.1.0
 python-dotenv==1.2.4
-
-# ---- Testing & code quality ----
-pytest==9.2.0
-pytest-asyncio==1.4.1
-pytest-cov==7.1.0
-ruff==0.17.3

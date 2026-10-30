@@ -57,10 +57,10 @@ if [[ ! -d "$VENV_DIR" ]]; then
 fi
 ok "Virtual environment ready"
 
-info "Installing dependencies from backend/requirements.txt"
+info "Installing dependencies from backend/requirements-dev.txt"
 uv pip install --python "$VENV_DIR/bin/python" \
   --index-strategy unsafe-best-match \
-  -r "$BACKEND_DIR/requirements.txt"
+  -r "$BACKEND_DIR/requirements-dev.txt"
 ok "Dependencies installed"
 
 # ---------------------------------------------------------------- .env

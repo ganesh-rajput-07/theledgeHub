@@ -1,0 +1,9 @@
+# Development & CI tools (the Docker image installs only requirements.txt)
+-r requirements.txt
+
+# ---- Testing & code quality ----
+pytest==9.2.0
+pytest-asyncio==1.4.1
+pytest-cov==7.1.0
+ruff==0.17.3
+pip-audit==2.10.1

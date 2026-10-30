@@ -3,4 +3,10 @@ target-version = "py312"
 extend-exclude = ["app/database/migrations"]
 
 [lint]
-select = ["E", "F", "W", "I", "B", "UP", "BLE", "RUF"]
+# S = flake8-bandit security checks (hard-coded secrets, injection, unsafe deserialisation, ...)
+select = ["E", "F", "W", "I", "B", "UP", "BLE", "RUF", "S"]
+
+[lint.per-file-ignores]
+# Tests and the evaluation harness assert by design and use throwaway fake credentials.
+"tests/**" = ["S101", "S105", "S106", "S107", "S311"]
+"evaluation/**" = ["S101", "S608"]
