@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     chunk_overlap: int = 50
 
     retrieval_top_k: int = 8
+    retrieval_mode: str = "hybrid"  # hybrid (vector + full-text, rank fusion) | vector
+    hybrid_keyword_weight: float = 0.5  # weight of the full-text ranking in rank fusion (vector = 1.0)
+    # A cross-encoder re-scores the best candidates; measured +7 points top-1 accuracy (docs/evaluation.md).
+    rerank_enabled: bool = True
+    reranker_model: str = "cross-encoder/ms-marco-MiniLM-L6-v2"
+    rerank_candidates: int = 20
 
     # OCR for scanned / image-only PDF pages (RapidOCR, CPU, no system packages needed).
     ocr_enabled: bool = True
@@ -45,6 +51,13 @@ class Settings(BaseSettings):
     # Follow-up questions are rewritten into standalone search queries: llm | concat | off
     query_rewrite: str = "llm"
     query_rewrite_max_tokens: int = 2048
+
+    # Document processing: "queue" = separate worker processes (python -m app.worker), safe with many API
+    # workers; "inline" = run in the API process right after the upload response (single process / tests).
+    ingestion_mode: str = "inline"
+    worker_poll_seconds: float = 1.0
+    job_stale_seconds: int = 1800  # a job "processing" longer than this lost its worker and is requeued
+    job_max_attempts: int = 3
 
     # Brute-force protection (per process; use a shared store such as Redis when running several workers)
     login_max_failures: int = 5  # per account per window

@@ -19,6 +19,8 @@ os.environ["STORAGE_DIR"] = tempfile.mkdtemp(prefix="knowledgehub-test-storage-"
 # The suite logs in hundreds of times from one client; brute-force tests lower these on purpose.
 os.environ["LOGIN_IP_MAX_ATTEMPTS"] = "100000"
 os.environ["REGISTER_IP_MAX_ATTEMPTS"] = "100000"
+# Process uploads right after the response (TestClient waits for it); queue tests switch to "queue".
+os.environ["INGESTION_MODE"] = "inline"
 get_settings.cache_clear()
 
 
@@ -48,9 +50,14 @@ def test_database():
 
 @pytest.fixture(autouse=True)
 def fresh_rate_limits():
-    from app.core.rate_limit import limiter
+    from sqlalchemy import delete
 
-    limiter._events.clear()
+    from app.database.session import SessionLocal
+    from app.models import RateLimitEvent
+
+    with SessionLocal() as db:
+        db.execute(delete(RateLimitEvent))
+        db.commit()
     yield
 
 

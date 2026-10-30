@@ -4,6 +4,7 @@ from app.models.conversation import Conversation, Message, MessageCitation
 from app.models.document import Document, DocumentStatus, IngestionJob
 from app.models.organization import MANAGER_ROLES, Membership, Organization, Role, Workspace
 from app.models.provider import ProviderCredential
+from app.models.rate_limit import RateLimitEvent
 from app.models.user import AuthSession, User
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
     "MessageCitation",
     "Organization",
     "ProviderCredential",
+    "RateLimitEvent",
     "Role",
     "User",
     "Workspace",
