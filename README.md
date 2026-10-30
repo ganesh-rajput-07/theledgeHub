@@ -19,10 +19,31 @@ Run the API:
 ./run.sh                          # API on :8001 + web app on http://localhost:3000
 ./run.sh api                      # API only   (http://127.0.0.1:8001/docs, port = API_PORT in backend/.env)
 ./run.sh web                      # web only   (frontend/README.md explains how it talks to the API)
+./run.sh docker                   # full stack in containers: Postgres + API (:8001) + web (:3000)
 
 cd backend && source .venv/bin/activate
 pytest                            # needs the Docker database running
 ```
+
+### Docker
+
+`./run.sh docker` builds and starts everything (`docker compose --env-file backend/.env --profile app up --build`).
+Secrets come from `backend/.env`; the API image bakes in the embedding model, runs migrations on start and
+runs as a non-root user. Plain `docker compose up -d db` still starts only the database for local development.
+Set `COOKIE_SECURE=false` only when serving the web app over plain HTTP on a non-localhost address.
+
+## Quality
+
+| Check | Command | CI |
+| --- | --- | --- |
+| Tests (unit, integration, 25-route tenant isolation, RAG quality guard) | `cd backend && .venv/bin/python -m pytest` | ✓ |
+| RAG evaluation (Recall@K, MRR, not-found sweep, citations) | `cd backend && .venv/bin/python -m evaluation` – see [docs/evaluation.md](docs/evaluation.md) | guard only |
+| Lint + security rules (ruff incl. bandit `S`) | `.venv/bin/ruff check app tests evaluation` | ✓ |
+| Migrations match models | `.venv/bin/alembic check` | ✓ |
+| Dependency vulnerabilities | `.venv/bin/pip-audit -r requirements.txt` · `npm audit --omit=dev` | ✓ |
+| Frontend types / lint / build | `npx tsc --noEmit` · `npx eslint src` · `npx next build` | ✓ |
+
+Architecture, security model and scaling notes: [docs/architecture.md](docs/architecture.md).
 
 ## Progress
 
@@ -32,7 +53,7 @@ pytest                            # needs the Docker database running
 - [x] Milestone 4 – AI integration (BYOK providers, prompts, validated citations, not-found handling)
 - [x] Milestone 5 – Business features (auth, organizations, workspaces, roles, tenant isolation)
 - [x] Milestone 6 – Frontend (Next.js dashboard, research chat with citations, settings)
-- [ ] Milestone 7 – Quality and release
+- [x] Milestone 7 – Quality and release (RAG evaluation, rate limiting, audit log, Docker, CI)
 
 ## API (`/api/v1`)
 
@@ -44,6 +65,7 @@ Full interactive reference: http://127.0.0.1:8001/docs
 | --- | --- |
 | Auth | `POST auth/register` · `POST auth/login` · `POST auth/refresh` (rotates) · `POST auth/logout` (revokes) · `GET auth/me` |
 | Organizations | `GET/POST organizations` · `GET organizations/{id}` · `GET/POST organizations/{id}/members` · `DELETE organizations/{id}/members/{user_id}` |
+| Audit log | `GET organizations/{id}/audit-logs` (`limit`, `action`; owners/admins) |
 | Workspaces | `GET/POST organizations/{id}/workspaces` · `GET/DELETE workspaces/{id}` |
 | Documents | `GET/POST workspaces/{id}/documents` · `GET/DELETE documents/{id}` · `GET documents/{id}/status` · `GET documents/{id}/chunks` · `GET documents/{id}/file` · `POST documents/{id}/reprocess` |
 | Search | `POST workspaces/{id}/search` (`query`, `top_k` 1–50, `document_ids`, `min_score`) |
