@@ -1,45 +1,55 @@
 import ipaddress
-import threading
-import time
-from collections import defaultdict, deque
+import random
 from functools import lru_cache
 
 from fastapi import Request
+from sqlalchemy import delete, func, select
+from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.models.rate_limit import RateLimitEvent
 
 
-class SlidingWindowLimiter:
-    """In-memory sliding-window counter. Good for a single API process; with several workers or
-    machines, move the counters to a shared store (Redis) so limits apply across all of them."""
+class PostgresRateLimiter:
+    """Sliding-window counters stored in PostgreSQL, shared by all API workers and containers.
+    Login volumes are tiny, so a table with an index on (key, created_at) is plenty fast and needs no
+    extra infrastructure. Two simultaneous requests can both pass the check (at most limit + workers),
+    which is acceptable for brute-force protection."""
 
-    def __init__(self):
-        self._events: dict[str, deque[float]] = defaultdict(deque)
-        self._lock = threading.Lock()
-
-    def _prune(self, key: str, window: float, now: float) -> deque[float]:
-        events = self._events[key]
-        while events and events[0] <= now - window:
-            events.popleft()
-        return events
-
-    def retry_after(self, key: str, limit: int, window: float) -> int:
+    def retry_after(self, db: Session, key: str, limit: int, window: int) -> int:
         """Seconds until `key` may try again, or 0 if it is under the limit."""
-        now = time.monotonic()
-        with self._lock:
-            events = self._prune(key, window, now)
-            return int(events[0] + window - now) + 1 if len(events) >= limit else 0
+        cutoff = func.now() - func.make_interval(0, 0, 0, 0, 0, 0, window)
+        count, oldest_wait = db.execute(
+            select(
+                func.count(),
+                func.extract(
+                    "epoch",
+                    func.min(RateLimitEvent.created_at) + func.make_interval(0, 0, 0, 0, 0, 0, window) - func.now(),
+                ),
+            ).where(RateLimitEvent.key == key, RateLimitEvent.created_at > cutoff)
+        ).one()
+        return max(int(oldest_wait) + 1, 1) if count >= limit else 0
 
-    def hit(self, key: str) -> None:
-        with self._lock:
-            self._events[key].append(time.monotonic())
+    def hit(self, db: Session, key: str, window: int) -> None:
+        db.add(RateLimitEvent(key=key))
+        db.execute(
+            delete(RateLimitEvent).where(
+                RateLimitEvent.key == key,
+                RateLimitEvent.created_at <= func.now() - func.make_interval(0, 0, 0, 0, 0, 0, window),
+            )
+        )
+        if random.random() < 0.01:  # noqa: S311 - occasional global cleanup, not security relevant
+            db.execute(
+                delete(RateLimitEvent).where(RateLimitEvent.created_at < func.now() - func.make_interval(0, 0, 0, 1))
+            )
+        db.commit()
 
-    def reset(self, key: str) -> None:
-        with self._lock:
-            self._events.pop(key, None)
+    def reset(self, db: Session, key: str) -> None:
+        db.execute(delete(RateLimitEvent).where(RateLimitEvent.key == key))
+        db.commit()
 
 
-limiter = SlidingWindowLimiter()
+limiter = PostgresRateLimiter()
 
 
 @lru_cache

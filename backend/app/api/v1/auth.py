@@ -24,8 +24,8 @@ def _unauthorized(exc: Exception) -> HTTPException:
     return HTTPException(status.HTTP_401_UNAUTHORIZED, str(exc), headers={"WWW-Authenticate": "Bearer"})
 
 
-def _enforce(key: str, limit: int) -> None:
-    wait = limiter.retry_after(key, limit, get_settings().rate_limit_window_seconds)
+def _enforce(db: DbSession, key: str, limit: int) -> None:
+    wait = limiter.retry_after(db, key, limit, get_settings().rate_limit_window_seconds)
     if wait:
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
@@ -36,8 +36,9 @@ def _enforce(key: str, limit: int) -> None:
 
 @router.post("/register", status_code=status.HTTP_201_CREATED, response_model=UserRead)
 def register(data: RegisterRequest, db: DbSession, ip: ClientIP):
-    _enforce(f"register:ip:{ip}", get_settings().register_ip_max_attempts)
-    limiter.hit(f"register:ip:{ip}")
+    window = get_settings().rate_limit_window_seconds
+    _enforce(db, f"register:ip:{ip}", get_settings().register_ip_max_attempts)
+    limiter.hit(db, f"register:ip:{ip}", window)
     try:
         user = auth_service.register(db, data.email, data.password, data.full_name, data.organization_name)
     except EmailTakenError as exc:
@@ -52,16 +53,17 @@ def login(data: LoginRequest, db: DbSession, ip: ClientIP):
     attempts, both per RATE_LIMIT_WINDOW_SECONDS."""
     settings = get_settings()
     email_key, ip_key = f"login:email:{auth_service.normalize_email(data.email)}", f"login:ip:{ip}"
-    _enforce(email_key, settings.login_max_failures)
-    _enforce(ip_key, settings.login_ip_max_attempts)
-    limiter.hit(ip_key)
+    window = settings.rate_limit_window_seconds
+    _enforce(db, email_key, settings.login_max_failures)
+    _enforce(db, ip_key, settings.login_ip_max_attempts)
+    limiter.hit(db, ip_key, window)
     try:
         user = auth_service.authenticate(db, data.email, data.password)
     except AuthError as exc:
-        limiter.hit(email_key)
+        limiter.hit(db, email_key, window)
         audit_service.record(db, "auth.login_failed", email=auth_service.normalize_email(data.email), ip=ip)
         raise _unauthorized(exc) from exc
-    limiter.reset(email_key)
+    limiter.reset(db, email_key)
     audit_service.record(db, "auth.login", user=user, ip=ip)
     return auth_service.issue_tokens(db, user)
 

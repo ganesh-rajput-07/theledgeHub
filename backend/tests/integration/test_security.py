@@ -156,3 +156,20 @@ def test_mock_provider_is_disabled_in_production(api, monkeypatch):
     )
     assert response.status_code == 400
     assert "disabled in production" in response.json()["detail"]
+
+
+def test_lockout_is_shared_state_not_per_process(client, api):
+    """Counters live in PostgreSQL, so another API worker (here: a separate DB session) sees the lockout."""
+    from app.core.rate_limit import limiter
+    from app.database.session import SessionLocal
+
+    for _ in range(get_settings().login_max_failures):
+        login(client, api.email, "wrong-password")
+    with SessionLocal() as other_worker:
+        wait = limiter.retry_after(
+            other_worker,
+            f"login:email:{api.email}",
+            get_settings().login_max_failures,
+            get_settings().rate_limit_window_seconds,
+        )
+    assert 0 < wait <= get_settings().rate_limit_window_seconds + 1
