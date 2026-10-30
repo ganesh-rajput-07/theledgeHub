@@ -2,8 +2,8 @@ import uuid
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import Computed, DateTime, ForeignKey, Index, Integer, Text, UniqueConstraint, func
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.config import get_settings
@@ -21,6 +21,8 @@ class DocumentChunk(Base):
             postgresql_using="hnsw",
             postgresql_ops={"embedding": "vector_cosine_ops"},
         ),
+        # Full-text index for the keyword half of hybrid search.
+        Index("ix_document_chunks_search_vector", "search_vector", postgresql_using="gin"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -32,6 +34,8 @@ class DocumentChunk(Base):
     page_number: Mapped[int | None] = mapped_column(Integer)
     token_count: Mapped[int | None] = mapped_column(Integer)
     embedding = mapped_column(Vector(get_settings().embedding_dimension), nullable=True)
+    # Maintained by PostgreSQL itself from `content` (English stemming), so it can never drift.
+    search_vector = mapped_column(TSVECTOR, Computed("to_tsvector('english', content)", persisted=True))
     # "metadata" is reserved on declarative classes, so the attribute is metadata_.
     metadata_: Mapped[dict] = mapped_column("metadata", JSONB, default=dict, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

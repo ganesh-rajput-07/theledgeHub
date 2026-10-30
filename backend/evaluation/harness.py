@@ -92,7 +92,13 @@ class RetrievalReport:
 
 
 def evaluate_retrieval(
-    db: Session, workspace_id: uuid.UUID, dataset: list[dict], k_values=(1, 3, 5, 8), thresholds=None
+    db: Session,
+    workspace_id: uuid.UUID,
+    dataset: list[dict],
+    k_values=(1, 3, 5, 8),
+    thresholds=None,
+    mode: str | None = None,
+    rerank: bool | None = None,
 ) -> RetrievalReport:
     thresholds = thresholds or [round(0.10 + 0.05 * i, 2) for i in range(8)]  # 0.10 .. 0.45
     provider = get_embedding_provider()
@@ -104,9 +110,14 @@ def evaluate_retrieval(
 
     for item in dataset:
         started = time.perf_counter()
-        results = retrieve(db, provider, item["question"], top_k=max_k, workspace_id=workspace_id)
+        candidates = retrieve(
+            db, provider, item["question"], top_k=max_k, workspace_id=workspace_id, mode=mode, rerank=rerank
+        )
         latencies.append((time.perf_counter() - started) * 1000)
-        top_scores.append((bool(item["sources"]), results[0].score if results else 0.0))
+        # Mirror production: "not found" is decided by the *best* cosine score among candidates, and the
+        # ranking the model sees only contains chunks at or above RAG_MIN_SCORE.
+        top_scores.append((bool(item["sources"]), max((r.score for r in candidates), default=0.0)))
+        results = [r for r in candidates if r.score >= get_settings().rag_min_score]
         if not item["sources"]:
             continue
 
