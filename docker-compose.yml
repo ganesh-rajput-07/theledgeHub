@@ -1,3 +1,5 @@
+# Development:  docker compose up -d db          (just Postgres + pgvector; run the API/web with ./run.sh)
+# Full stack:   ./run.sh docker                  (= docker compose --env-file backend/.env --profile app up --build)
 services:
   db:
     image: pgvector/pgvector:pg17
@@ -15,5 +17,45 @@ services:
       timeout: 3s
       retries: 20
 
+  backend:
+    profiles: [app]
+    build: ./backend
+    image: knowledgehub-api
+    restart: unless-stopped
+    env_file: backend/.env
+    environment:
+      APP_ENV: production
+      DEBUG: "false"
+      # Container paths/addresses; these override the dev values that env_file brings in from backend/.env.
+      STORAGE_DIR: /data/storage
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-knowledgehub}:${POSTGRES_PASSWORD:-knowledgehub}@db:5432/${POSTGRES_DB:-knowledgehub}
+      # The web container reaches the API over the Docker network; only it may set X-Forwarded-For.
+      TRUSTED_PROXIES: 127.0.0.1/32,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8
+      OLLAMA_BASE_URL: ${DOCKER_OLLAMA_BASE_URL:-http://host.docker.internal:11434}  # Ollama on the host machine
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - storage:/data/storage
+    ports:
+      - "${API_PORT:-8001}:8001"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    profiles: [app]
+    build: ./frontend
+    image: knowledgehub-web
+    restart: unless-stopped
+    environment:
+      BACKEND_URL: http://backend:8001
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
 volumes:
   pgdata:
+  storage:

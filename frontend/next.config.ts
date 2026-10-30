@@ -8,6 +8,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  output: "standalone", // self-contained server for the Docker image
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,

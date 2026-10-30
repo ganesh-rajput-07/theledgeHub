@@ -3,6 +3,7 @@
 #   ./run.sh        API (port from API_PORT in backend/.env, default 8001) + web app (port 3000)
 #   ./run.sh api    API only
 #   ./run.sh web    web app only (expects the API to be running)
+#   ./run.sh docker full stack in containers (Postgres + API + web)
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -17,7 +18,7 @@ API_PORT="${API_PORT:-8001}"
 start_api() {
   [[ -x "$BACKEND_DIR/.venv/bin/uvicorn" ]] || { echo "No virtualenv found - run ./setup.sh first."; exit 1; }
   echo "API:  http://127.0.0.1:$API_PORT   Docs: http://127.0.0.1:$API_PORT/docs"
-  cd "$BACKEND_DIR" && exec .venv/bin/uvicorn app.main:app --reload --host 127.0.0.1 --port "$API_PORT"
+  cd "$BACKEND_DIR" && exec .venv/bin/uvicorn app.main:app --reload --reload-dir app --host 127.0.0.1 --port "$API_PORT"
 }
 
 start_web() {
@@ -40,5 +41,8 @@ case "$MODE" in
     trap 'exit 130' INT TERM
     start_web
     ;;
-  *) echo "Usage: ./run.sh [api|web]"; exit 1 ;;
+  docker)
+    cd "$ROOT_DIR" && exec docker compose --env-file backend/.env --profile app up --build
+    ;;
+  *) echo "Usage: ./run.sh [api|web|docker]"; exit 1 ;;
 esac
