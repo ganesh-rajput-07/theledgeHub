@@ -1,0 +1,412 @@
+[
+  {
+    "question": "What was Northwind's total revenue in fiscal year 2025?",
+    "sources": [
+      {
+        "document": "northwind-annual-report-2025.pdf",
+        "page": 2
+      }
+    ],
+    "facts": [
+      "412"
+    ],
+    "kind": "lookup"
+  },
+  {
+    "question": "How much did revenue grow compared with the previous year?",
+    "sources": [
+      {
+        "document": "northwind-annual-report-2025.pdf",
+        "page": 2
+      }
+    ],
+    "facts": [
+      "38"
+    ],
+    "kind": "lookup"
+  },
+  {
+    "question": "What share of revenue is recurring subscription revenue?",
+    "sources": [
+      {
+        "document": "northwind-annual-report-2025.pdf",
+        "page": 2
+      }
+    ],
+    "facts": [
+      "81"
+    ],
+    "kind": "lookup"
+  },
+  {
+    "question": "Was the company profitable in 2025?",
+    "sources": [
+      {
+        "document": "northwind-annual-report-2025.pdf",
+        "page": 2
+      }
+    ],
+    "facts": [
+      "37"
+    ],
+    "kind": "paraphrase"
+  },
+  {
+    "question": "Who founded Northwind and when?",
+    "sources": [
+      {
+        "document": "northwind-annual-report-2025.pdf",
+        "page": 1
+      }
+    ],
+    "facts": [
+      "Meera Iyer",
+      "2016"
+    ],
+    "kind": "lookup"
+  },
+  {
+    "question": "How many customers does Northwind have?",
+    "sources": [
+      {
+        "document": "northwind-annual-report-2025.pdf",
+        "page": 1
+      }
+    ],
+    "facts": [
+      "1,240"
+    ],
+    "kind": "lookup"
+  },
+  {
+    "question": "What revenue target did the board set for next year?",
+    "sources": [
+      {
+        "document": "northwind-annual-report-2025.pdf",
+        "page": 3
+      }
+    ],
+    "facts": [
+      "540"
+    ],
+    "kind": "lookup"
+  },
+  {
+    "question": "Where is the new data centre region being built and what will it cost?",
+    "sources": [
+      {
+        "document": "northwind-annual-report-2025.pdf",
+        "page": 3
+      }
+    ],
+    "facts": [
+      "Singapore",
+      "60"
+    ],
+    "kind": "lookup"
+  },
+  {
+    "question": "When does the fiscal year start and end?",
+    "sources": [
+      {
+        "document": "northwind-annual-report-2025.pdf",
+        "page": 2
+      }
+    ],
+    "facts": [
+      "1 April",
+      "31 March"
+    ],
+    "kind": "lookup"
+  },
+  {
+    "question": "How much revenue did Stratus Retail AI report for fiscal year 2025?",
+    "sources": [
+      {
+        "document": "competitor-analysis-q4.pdf",
+        "page": 1
+      }
+    ],
+    "facts": [
+      "655"
+    ],
+    "kind": "distractor"
+  },
+  {
+    "question": "Why do we lose deals against competitors?",
+    "sources": [
+      {
+        "document": "competitor-analysis-q4.pdf",
+        "page": 2
+      }
+    ],
+    "facts": [
+      "SAP"
+    ],
+    "kind": "paraphrase"
+  },
+  {
+    "question": "How much funding did Helio Demand raise?",
+    "sources": [
+      {
+        "document": "competitor-analysis-q4.pdf",
+        "page": 2
+      }
+    ],
+    "facts": [
+      "45"
+    ],
+    "kind": "lookup"
+  },
+  {
+    "question": "How many days of paid annual leave do employees get?",
+    "sources": [
+      {
+        "document": "hr-leave-policy.pdf",
+        "page": 1
+      }
+    ],
+    "facts": [
+      "24"
+    ],
+    "kind": "distractor"
+  },
+  {
+    "question": "Can I carry unused vacation days into next year?",
+    "sources": [
+      {
+        "document": "hr-leave-policy.pdf",
+        "page": 1
+      }
+    ],
+    "facts": [
+      "8"
+    ],
+    "kind": "paraphrase"
+  },
+  {
+    "question": "When is a doctor's note needed for sick leave?",
+    "sources": [
+      {
+        "document": "hr-leave-policy.pdf",
+        "page": 1
+      }
+    ],
+    "facts": [
+      "3"
+    ],
+    "kind": "paraphrase"
+  },
+  {
+    "question": "How long is paternity leave?",
+    "sources": [
+      {
+        "document": "hr-leave-policy.pdf",
+        "page": 2
+      }
+    ],
+    "facts": [
+      "6 weeks"
+    ],
+    "kind": "lookup"
+  },
+  {
+    "question": "How many days a week can I work from home?",
+    "sources": [
+      {
+        "document": "remote-work-policy.pdf",
+        "page": 1
+      }
+    ],
+    "facts": [
+      "3"
+    ],
+    "kind": "distractor"
+  },
+  {
+    "question": "Does the company pay for my home office setup?",
+    "sources": [
+      {
+        "document": "remote-work-policy.pdf",
+        "page": 1
+      }
+    ],
+    "facts": [
+      "40,000"
+    ],
+    "kind": "paraphrase"
+  },
+  {
+    "question": "Can I work from another country for a while?",
+    "sources": [
+      {
+        "document": "remote-work-policy.pdf",
+        "page": 2
+      }
+    ],
+    "facts": [
+      "30 days"
+    ],
+    "kind": "paraphrase"
+  },
+  {
+    "question": "Is SMS allowed as a second factor for login?",
+    "sources": [
+      {
+        "document": "information-security-policy.pdf",
+        "page": 1
+      }
+    ],
+    "facts": [
+      "SMS"
+    ],
+    "kind": "paraphrase"
+  },
+  {
+    "question": "What is the minimum password length?",
+    "sources": [
+      {
+        "document": "information-security-policy.pdf",
+        "page": 1
+      }
+    ],
+    "facts": [
+      "14"
+    ],
+    "kind": "lookup"
+  },
+  {
+    "question": "I lost my laptop, what should I do and how quickly?",
+    "sources": [
+      {
+        "document": "information-security-policy.pdf",
+        "page": 2
+      }
+    ],
+    "facts": [
+      "1 hour"
+    ],
+    "kind": "paraphrase"
+  },
+  {
+    "question": "How often are production database backups taken and how long are they kept?",
+    "sources": [
+      {
+        "document": "information-security-policy.pdf",
+        "page": 2
+      }
+    ],
+    "facts": [
+      "6 hours",
+      "35 days"
+    ],
+    "kind": "lookup"
+  },
+  {
+    "question": "How far ahead does the forecast look?",
+    "sources": [
+      {
+        "document": "forecast-product-manual.pdf",
+        "page": 1
+      }
+    ],
+    "facts": [
+      "13"
+    ],
+    "kind": "paraphrase"
+  },
+  {
+    "question": "What is the API rate limit?",
+    "sources": [
+      {
+        "document": "forecast-product-manual.pdf",
+        "page": 2
+      }
+    ],
+    "facts": [
+      "600"
+    ],
+    "kind": "lookup"
+  },
+  {
+    "question": "When will API version v2 be switched off?",
+    "sources": [
+      {
+        "document": "forecast-product-manual.pdf",
+        "page": 2
+      }
+    ],
+    "facts": [
+      "30 June 2026"
+    ],
+    "kind": "lookup"
+  },
+  {
+    "question": "How accurate are the forecasts?",
+    "sources": [
+      {
+        "document": "forecast-product-manual.pdf",
+        "page": 3
+      }
+    ],
+    "facts": [
+      "11.8"
+    ],
+    "kind": "paraphrase"
+  },
+  {
+    "question": "What support response time do Enterprise customers get for critical issues?",
+    "sources": [
+      {
+        "document": "forecast-product-manual.pdf",
+        "page": 3
+      }
+    ],
+    "facts": [
+      "1 hour"
+    ],
+    "kind": "lookup"
+  },
+  {
+    "question": "What is the address of Northwind's Berlin office?",
+    "sources": [],
+    "facts": [],
+    "kind": "unanswerable"
+  },
+  {
+    "question": "How many employees does Northwind have?",
+    "sources": [],
+    "facts": [],
+    "kind": "unanswerable"
+  },
+  {
+    "question": "What is the company's dress code?",
+    "sources": [],
+    "facts": [],
+    "kind": "unanswerable"
+  },
+  {
+    "question": "What was Northwind's revenue in fiscal year 2022?",
+    "sources": [],
+    "facts": [],
+    "kind": "unanswerable"
+  },
+  {
+    "question": "Who is the Chief Financial Officer?",
+    "sources": [],
+    "facts": [],
+    "kind": "unanswerable"
+  },
+  {
+    "question": "Does Northwind offer a free trial?",
+    "sources": [],
+    "facts": [],
+    "kind": "unanswerable"
+  },
+  {
+    "question": "What is the price of the Enterprise plan?",
+    "sources": [],
+    "facts": [],
+    "kind": "unanswerable"
+  }
+]
