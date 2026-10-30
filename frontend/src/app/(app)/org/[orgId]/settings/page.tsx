@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, FolderPlus, KeyRound, Trash2, UserPlus, Users } from "lucide-react";
+import { CheckCircle2, FolderPlus, History, KeyRound, Trash2, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState, type FormEvent, type ReactNode } from "react";
@@ -9,7 +9,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { Badge, Button, Card, ErrorText, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/format";
-import { keys, useMe, useMembers, useOrganizations, useProviders, useWorkspaces } from "@/lib/queries";
+import { keys, useAuditLog, useMe, useMembers, useOrganizations, useProviders, useWorkspaces } from "@/lib/queries";
 import type { ProviderName, Role } from "@/types/api";
 
 const PROVIDERS: { value: ProviderName; label: string; needsKey: boolean; models: string[] }[] = [
@@ -324,6 +324,55 @@ function Workspaces({ orgId, canManage }: { orgId: string; canManage: boolean })
   );
 }
 
+// ---------------------------------------------------------------- activity (audit trail)
+
+const ACTION_LABELS: Record<string, string> = {
+  "auth.login": "Signed in",
+  "organization.create": "Created the organization",
+  "document.upload": "Uploaded",
+  "document.delete": "Deleted document",
+  "provider.create": "Connected provider",
+  "provider.update": "Changed provider",
+  "provider.delete": "Removed provider",
+  "member.add": "Added a member",
+  "member.remove": "Removed a member",
+  "workspace.create": "Created workspace",
+  "workspace.delete": "Deleted workspace",
+};
+
+function Activity({ orgId }: { orgId: string }) {
+  const { data: entries, isLoading, error } = useAuditLog(orgId, true);
+  return (
+    <Section icon={<History className="size-5" />} title="Activity" description="Security-relevant actions in this organization (last 50). Visible to owners and admins.">
+      {isLoading ? (
+        <Spinner />
+      ) : (
+        <ul className="divide-y divide-slate-100 rounded-md text-sm ring-1 ring-slate-200">
+          {entries?.map((e) => {
+            const name = (e.details.filename ?? e.details.label ?? e.details.name) as string | undefined;
+            return (
+              <li key={e.id} className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-2.5">
+                <span>
+                  <span className="font-medium">{e.actor_email ?? "Someone"}</span>{" "}
+                  <span className="text-slate-600">{(ACTION_LABELS[e.action] ?? e.action).toLowerCase()}</span>
+                  {name && <span className="text-slate-900"> “{name}”</span>}
+                  {e.action === "provider.update" && e.details.key_rotated === true && <span className="text-slate-600"> (key rotated)</span>}
+                </span>
+                <span className="text-xs text-slate-400">
+                  {formatDate(e.created_at)}
+                  {e.ip_address && ` · ${e.ip_address}`}
+                </span>
+              </li>
+            );
+          })}
+          {!entries?.length && <li className="px-4 py-6 text-slate-500">No activity yet.</li>}
+        </ul>
+      )}
+      <ErrorText error={error} />
+    </Section>
+  );
+}
+
 export default function SettingsPage() {
   const { orgId } = useParams<{ orgId: string }>();
   const { data: orgs, isLoading } = useOrganizations();
@@ -341,6 +390,7 @@ export default function SettingsPage() {
         <Providers orgId={orgId} canManage={canManage} />
         <Members orgId={orgId} myRole={org.role} myId={me?.id} />
         <Workspaces orgId={orgId} canManage={canManage} />
+        {canManage && <Activity orgId={orgId} />}
       </div>
     </>
   );

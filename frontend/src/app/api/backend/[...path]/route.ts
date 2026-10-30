@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   BACKEND_URL,
   clearSessionCookies,
+  forwardedFor,
   getAccessToken,
   isCrossSite,
   setSessionCookies,
@@ -22,7 +23,7 @@ async function forward(request: NextRequest, ctx: { params: Promise<{ path: stri
     return response;
   }
 
-  const headers = new Headers({ Authorization: `Bearer ${token}` });
+  const headers = new Headers({ Authorization: `Bearer ${token}`, ...forwardedFor(request) });
   const contentType = request.headers.get("content-type");
   if (contentType) headers.set("content-type", contentType);
 

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { api } from "@/lib/api";
 import type {
+  AuditEntry,
   ChatMessage,
   Conversation,
   DocumentItem,
@@ -19,6 +20,7 @@ export const keys = {
   orgs: ["orgs"] as const,
   workspaces: (orgId: string) => ["orgs", orgId, "workspaces"] as const,
   members: (orgId: string) => ["orgs", orgId, "members"] as const,
+  audit: (orgId: string) => ["orgs", orgId, "audit"] as const,
   providers: (orgId: string) => ["orgs", orgId, "providers"] as const,
   workspace: (id: string) => ["workspaces", id] as const,
   documents: (wsId: string) => ["workspaces", wsId, "documents"] as const,
@@ -71,4 +73,11 @@ export const useMessages = (conversationId: string | null) =>
     queryKey: keys.messages(conversationId ?? ""),
     queryFn: () => api<ChatMessage[]>(`conversations/${conversationId}/messages`),
     enabled: !!conversationId,
+  });
+
+export const useAuditLog = (orgId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: keys.audit(orgId),
+    queryFn: () => api<AuditEntry[]>(`organizations/${orgId}/audit-logs?limit=50`),
+    enabled,
   });

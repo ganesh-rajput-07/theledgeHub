@@ -20,7 +20,9 @@ export type TokenPair = {
 const cookieOptions = {
   httpOnly: true,
   sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
+  // Secure by default in production. Set COOKIE_SECURE=false only for plain-HTTP setups on a LAN address
+  // (browsers already treat http://localhost as secure).
+  secure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === "true" : process.env.NODE_ENV === "production",
   path: "/",
 };
 
@@ -86,4 +88,13 @@ export function isCrossSite(request: Request): boolean {
   } catch {
     return true;
   }
+}
+
+/**
+ * The browser's IP for the backend's rate limits and audit log. FastAPI only honours this header from
+ * addresses in its TRUSTED_PROXIES setting (this Next.js server), so browsers can't spoof it.
+ */
+export function forwardedFor(request: Request): Record<string, string> {
+  const chain = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip");
+  return chain ? { "X-Forwarded-For": chain } : {};
 }

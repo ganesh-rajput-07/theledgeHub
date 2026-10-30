@@ -114,3 +114,15 @@ export interface Answer {
   truncated: boolean;
   search_query: string;
 }
+
+export interface AuditEntry {
+  id: string;
+  action: string;
+  user_id: string | null;
+  actor_email: string | null;
+  target_type: string | null;
+  target_id: string | null;
+  ip_address: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
+}

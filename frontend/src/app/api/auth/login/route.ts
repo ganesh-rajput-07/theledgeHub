@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 
-import { BACKEND_URL, isCrossSite, setSessionCookies, type TokenPair } from "@/lib/server/session";
+import { BACKEND_URL, forwardedFor, isCrossSite, setSessionCookies, type TokenPair } from "@/lib/server/session";
 
 export async function POST(request: Request) {
   if (isCrossSite(request)) return NextResponse.json({ detail: "Cross-site request" }, { status: 403 });
   const body = await request.json();
   const response = await fetch(`${BACKEND_URL}/api/v1/auth/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...forwardedFor(request) },
     body: JSON.stringify({ email: body.email, password: body.password }),
     cache: "no-store",
   });
