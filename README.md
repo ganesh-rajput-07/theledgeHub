@@ -6,15 +6,19 @@ Project blueprint: [`docs/`](docs/).
 ## Setup
 
 ```bash
-./setup.sh              # venv (Python 3.12), deps, .env, Postgres+pgvector (Docker, port 5433), migrations, model, tests
-./setup.sh --no-db      # skip Docker/Postgres
-./setup.sh --no-model   # skip embedding model download
+./setup.sh               # venv (Python 3.12), deps, .env, Postgres+pgvector (Docker, port 5433), migrations,
+                         # embedding model, OCR check, frontend (npm ci + build), tests
+./setup.sh --no-db       # skip Docker/Postgres
+./setup.sh --no-model    # skip embedding model download
+./setup.sh --no-frontend # skip the Next.js frontend
 ```
 
 Run the API:
 
 ```bash
-./run.sh                          # http://127.0.0.1:8001/docs  (port = API_PORT in backend/.env)
+./run.sh                          # API on :8001 + web app on http://localhost:3000
+./run.sh api                      # API only   (http://127.0.0.1:8001/docs, port = API_PORT in backend/.env)
+./run.sh web                      # web only   (frontend/README.md explains how it talks to the API)
 
 cd backend && source .venv/bin/activate
 pytest                            # needs the Docker database running
@@ -26,63 +30,51 @@ pytest                            # needs the Docker database running
 - [x] Milestone 2 – Document ingestion (upload, validation, page-wise extraction, chunking, storage)
 - [x] Milestone 3 – Embeddings and retrieval (local embeddings, pgvector HNSW, semantic search, OCR)
 - [x] Milestone 4 – AI integration (BYOK providers, prompts, validated citations, not-found handling)
-- [ ] Milestone 5 – Business features (auth, organizations, workspaces)
-- [ ] Milestone 6 – Frontend
+- [x] Milestone 5 – Business features (auth, organizations, workspaces, roles, tenant isolation)
+- [x] Milestone 6 – Frontend (Next.js dashboard, research chat with citations, settings)
 - [ ] Milestone 7 – Quality and release
 
-## Document API (`/api/v1`)
+## API (`/api/v1`)
 
-| Method | Endpoint                     | Purpose                                   |
-| ------ | ---------------------------- | ----------------------------------------- |
-| POST   | `/documents`                 | Upload PDF / DOCX / TXT / MD (202, async) |
-| GET    | `/documents`                 | List documents                            |
-| GET    | `/documents/{id}`            | Document details + chunk count            |
-| GET    | `/documents/{id}/status`     | Ingestion status / error                  |
-| GET    | `/documents/{id}/chunks`     | Inspect chunks (`limit`, `offset`)        |
-| POST   | `/documents/{id}/reprocess`  | Re-run ingestion                          |
-| DELETE | `/documents/{id}`            | Delete file, chunks and jobs              |
-| POST   | `/search`                    | Semantic search over completed documents  |
+Everything except `auth/register|login|refresh|logout` and `/health` needs `Authorization: Bearer <access token>`.
+A resource from another organization always answers **404**, so tenants can't even confirm each other's IDs exist.
+Full interactive reference: http://127.0.0.1:8001/docs
 
-Documents move under `/workspaces/{id}/documents` once workspaces and auth land (Milestone 5).
+| Area | Endpoints |
+| --- | --- |
+| Auth | `POST auth/register` · `POST auth/login` · `POST auth/refresh` (rotates) · `POST auth/logout` (revokes) · `GET auth/me` |
+| Organizations | `GET/POST organizations` · `GET organizations/{id}` · `GET/POST organizations/{id}/members` · `DELETE organizations/{id}/members/{user_id}` |
+| Workspaces | `GET/POST organizations/{id}/workspaces` · `GET/DELETE workspaces/{id}` |
+| Documents | `GET/POST workspaces/{id}/documents` · `GET/DELETE documents/{id}` · `GET documents/{id}/status` · `GET documents/{id}/chunks` · `GET documents/{id}/file` · `POST documents/{id}/reprocess` |
+| Search | `POST workspaces/{id}/search` (`query`, `top_k` 1–50, `document_ids`, `min_score`) |
+| Provider keys (BYOK) | `GET/POST organizations/{id}/providers` · `GET/PATCH/DELETE providers/{id}` · `POST providers/{id}/validate` |
+| Chat | `GET/POST workspaces/{id}/conversations` · `GET/DELETE conversations/{id}` · `GET/POST conversations/{id}/messages` · `GET messages/{id}/citations` |
 
-```bash
-curl -F "file=@report.pdf" http://127.0.0.1:8001/api/v1/documents
-curl http://127.0.0.1:8001/api/v1/documents/<id>/chunks
-curl -X POST http://127.0.0.1:8001/api/v1/search -H 'Content-Type: application/json' \
-     -d '{"query": "How many leave days do employees get?", "top_k": 5}'
-```
-
-Search body: `query` (required), `top_k` (1–50, default 8), `document_ids` (optional filter),
-`min_score` (optional cosine-similarity cutoff). Results come back best-first with filename, page number and score.
-
-## BYOK providers & chat (`/api/v1`)
-
-| Method | Endpoint                           | Purpose                                              |
-| ------ | ---------------------------------- | ---------------------------------------------------- |
-| POST   | `/providers`                       | Connect a provider (key validated, stored encrypted) |
-| GET    | `/providers`                       | List connections (key hint only, never the key)      |
-| PATCH  | `/providers/{id}`                  | Rename / rotate key / change model / disable         |
-| POST   | `/providers/{id}/validate`         | Re-check key, list available models                  |
-| DELETE | `/providers/{id}`                  | Delete the stored key                                |
-| POST   | `/conversations`                   | Start a conversation (provider, model, documents)    |
-| GET    | `/conversations`                   | List conversations                                   |
-| POST   | `/conversations/{id}/messages`     | Ask a question → answer + citations                  |
-| GET    | `/conversations/{id}/messages`     | Chat history with citations                          |
-| GET    | `/messages/{id}/citations`         | Citation details                                     |
+**Roles**: members upload, search and chat; owners/admins also manage provider keys, members and workspaces.
+Documents can be deleted by their uploader or an owner/admin. Conversations are private to their creator.
 
 Supported providers: `openai`, `anthropic`, `gemini` (customer API key), `ollama` (local, optional `base_url`),
 `mock` (offline, deterministic – disabled when `APP_ENV=production`).
 
 ```bash
-curl -X POST http://127.0.0.1:8001/api/v1/providers -H 'Content-Type: application/json' \
+API=http://127.0.0.1:8001/api/v1
+curl -X POST $API/auth/register -H 'Content-Type: application/json' \
+     -d '{"email": "me@company.com", "password": "a-long-password", "organization_name": "Acme"}'
+TOKEN=$(curl -s -X POST $API/auth/login -H 'Content-Type: application/json' \
+     -d '{"email": "me@company.com", "password": "a-long-password"}' | jq -r .access_token)
+curl -H "Authorization: Bearer $TOKEN" $API/organizations            # → org id
+curl -H "Authorization: Bearer $TOKEN" $API/organizations/<org>/workspaces   # → workspace id
+curl -H "Authorization: Bearer $TOKEN" -F "file=@report.pdf" $API/workspaces/<ws>/documents
+curl -H "Authorization: Bearer $TOKEN" -X POST $API/organizations/<org>/providers -H 'Content-Type: application/json' \
      -d '{"provider": "anthropic", "label": "My key", "api_key": "sk-ant-...", "default_model": "claude-opus-5-5"}'
-curl -X POST http://127.0.0.1:8001/api/v1/conversations -H 'Content-Type: application/json' \
-     -d '{"provider_id": "<provider id>", "document_ids": []}'
-curl -X POST http://127.0.0.1:8001/api/v1/conversations/<id>/messages -H 'Content-Type: application/json' \
+curl -H "Authorization: Bearer $TOKEN" -X POST $API/workspaces/<ws>/conversations -H 'Content-Type: application/json' \
+     -d '{"provider_id": "<provider id>"}'
+curl -H "Authorization: Bearer $TOKEN" -X POST $API/conversations/<id>/messages -H 'Content-Type: application/json' \
      -d '{"question": "How many leave days do employees get?"}'
 ```
 
-How an answer is produced: `retrieve (top 8, score ≥ RAG_MIN_SCORE) → nothing relevant? answer "not found"
+How an answer is produced: `follow-up? rewrite it into a standalone search query → retrieve within the
+workspace (top 8, score ≥ RAG_MIN_SCORE) → nothing relevant? answer "not found"
 without calling the LLM → numbered <sources> + question → customer's model → keep only [n] markers that point at a
 retrieved chunk → save answer, citations, token usage`.
 

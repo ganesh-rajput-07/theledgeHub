@@ -1,24 +1,30 @@
 #!/usr/bin/env bash
 # KnowledgeHub AI - one-shot local setup.
 # Creates backend/.venv (Python 3.12), installs pinned deps, writes backend/.env,
-# starts PostgreSQL + pgvector in Docker, caches the embedding model, runs tests.
+# starts PostgreSQL + pgvector in Docker, caches the embedding model, installs the
+# Next.js frontend, and runs the tests.
 #
-# Usage:  ./setup.sh            full setup
-#         ./setup.sh --no-db    skip Docker/Postgres
-#         ./setup.sh --no-model skip embedding model download
+# Usage:  ./setup.sh               full setup
+#         ./setup.sh --no-db       skip Docker/Postgres
+#         ./setup.sh --no-model    skip embedding model download
+#         ./setup.sh --no-frontend skip the Next.js frontend
 set -euo pipefail
 
 PYTHON_VERSION="3.12"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$ROOT_DIR/backend"
+FRONTEND_DIR="$ROOT_DIR/frontend"
+NODE_MAJOR_MIN=20
 VENV_DIR="$BACKEND_DIR/.venv"
 
 WITH_DB=1
 WITH_MODEL=1
+WITH_FRONTEND=1
 for arg in "$@"; do
   case "$arg" in
     --no-db) WITH_DB=0 ;;
     --no-model) WITH_MODEL=0 ;;
+    --no-frontend) WITH_FRONTEND=0 ;;
     *) echo "Unknown option: $arg"; exit 1 ;;
   esac
 done
@@ -130,14 +136,26 @@ if [[ $WITH_DB -eq 1 ]]; then
   (cd "$BACKEND_DIR" && "$VENV_DIR/bin/python" -m pytest -q)
 fi
 
+# ---------------------------------------------------------------- frontend
+if [[ $WITH_FRONTEND -eq 1 ]]; then
+  info "Setting up the Next.js frontend"
+  command -v node >/dev/null 2>&1 || fail "Node.js not found. Install Node $NODE_MAJOR_MIN+ (e.g. via nvm) or rerun with --no-frontend."
+  NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
+  [[ "$NODE_MAJOR" -ge $NODE_MAJOR_MIN ]] || fail "Node $NODE_MAJOR found; Node $NODE_MAJOR_MIN+ is required."
+  (cd "$FRONTEND_DIR" && npm ci --no-audit --no-fund)
+  [[ -f "$FRONTEND_DIR/.env.local" ]] || cp "$FRONTEND_DIR/.env.example" "$FRONTEND_DIR/.env.local"
+  info "Type-checking and building the frontend"
+  (cd "$FRONTEND_DIR" && npx next typegen >/dev/null && npx tsc --noEmit && npx next build >/dev/null)
+  ok "Frontend ready (Node $(node --version))"
+fi
+
 echo
 ok "Setup complete!"
 cat <<EOF
 
 Next steps:
-  ./run.sh                     # starts the API on port 8001
+  ./run.sh                     # API on port 8001 + web app on port 3000
 
-  API:   http://127.0.0.1:8001
-  Docs:  http://127.0.0.1:8001/docs
-  Health http://127.0.0.1:8001/health
+  App:   http://localhost:3000
+  API:   http://127.0.0.1:8001/docs
 EOF
