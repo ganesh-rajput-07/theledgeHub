@@ -37,11 +37,22 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 16000  # reasoning models spend part of this on thinking; don't lowball it
     llm_timeout_seconds: float = 120.0
     ollama_timeout_seconds: float = 600.0  # local CPU models are slow
-    rag_min_score: float = 0.25  # below this, retrieval found nothing relevant and the LLM is not called
+    ollama_base_url: str = "http://localhost:11434"  # used when a provider connection sets no base_url
+    # Below this, retrieval found nothing relevant and the LLM is not called. 0.30 from the evaluation
+    # (docs/evaluation.md): it refuses some unanswerable questions without losing any answerable one.
+    rag_min_score: float = 0.30
     chat_history_messages: int = 6
     # Follow-up questions are rewritten into standalone search queries: llm | concat | off
     query_rewrite: str = "llm"
     query_rewrite_max_tokens: int = 2048
+
+    # Brute-force protection (per process; use a shared store such as Redis when running several workers)
+    login_max_failures: int = 5  # per account per window
+    login_ip_max_attempts: int = 30  # per client IP per window
+    register_ip_max_attempts: int = 10
+    rate_limit_window_seconds: int = 900
+    # Only these addresses may tell us the real client IP via X-Forwarded-For (e.g. the Next.js server).
+    trusted_proxies: str = "127.0.0.1/32,::1/128"
 
     storage_dir: str = "storage"
     max_upload_mb: int = 25

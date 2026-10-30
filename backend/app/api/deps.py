@@ -8,11 +8,12 @@ a resource is visible only through an organization the current user belongs to. 
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.rate_limit import client_ip
 from app.core.security import ACCESS, TokenError, decode_token
 from app.database.session import get_db
 from app.models import (
@@ -28,6 +29,13 @@ from app.models import (
 )
 
 DbSession = Annotated[Session, Depends(get_db)]
+
+
+def get_client_ip(request: Request) -> str:
+    return client_ip(request)
+
+
+ClientIP = Annotated[str, Depends(get_client_ip)]
 
 _bearer = HTTPBearer(auto_error=False, description="Access token from /api/v1/auth/login")
 

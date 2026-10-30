@@ -16,6 +16,9 @@ _main_url = make_url(Settings().database_url)
 _test_url = make_url(os.environ.get("TEST_DATABASE_URL") or _main_url.set(database=f"{_main_url.database}_test"))
 os.environ["DATABASE_URL"] = _test_url.render_as_string(hide_password=False)
 os.environ["STORAGE_DIR"] = tempfile.mkdtemp(prefix="knowledgehub-test-storage-")
+# The suite logs in hundreds of times from one client; brute-force tests lower these on purpose.
+os.environ["LOGIN_IP_MAX_ATTEMPTS"] = "100000"
+os.environ["REGISTER_IP_MAX_ATTEMPTS"] = "100000"
 get_settings.cache_clear()
 
 
@@ -41,6 +44,14 @@ def test_database():
     command.upgrade(Config(str(BACKEND_DIR / "alembic.ini")), "head")
     yield
     engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def fresh_rate_limits():
+    from app.core.rate_limit import limiter
+
+    limiter._events.clear()
+    yield
 
 
 @pytest.fixture

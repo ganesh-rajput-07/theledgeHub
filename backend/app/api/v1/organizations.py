@@ -1,13 +1,15 @@
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
 
-from app.api.deps import CurrentUser, DbSession, OrgDep, OrgManagerDep
+from app.api.deps import ClientIP, CurrentUser, DbSession, OrgDep, OrgManagerDep
 from app.api.errors import llm_http_error
 from app.llm.base import LLMError
-from app.models import Membership, Organization, ProviderCredential, User, Workspace
+from app.models import AuditLog, Membership, Organization, ProviderCredential, User, Workspace
 from app.schemas.organization import (
+    AuditLogRead,
     MemberAdd,
     MemberRead,
     OrganizationCreate,
@@ -16,6 +18,7 @@ from app.schemas.organization import (
     WorkspaceRead,
 )
 from app.schemas.provider import ProviderCreate, ProviderRead
+from app.services import audit_service
 from app.services.organization_service import MemberError, add_member, create_organization, remove_member
 from app.services.provider_service import ProviderConfigError, create_credential
 
@@ -33,8 +36,10 @@ def _org(organization: Organization, role: str) -> OrganizationRead:
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=OrganizationRead)
-def create_org(data: OrganizationCreate, user: CurrentUser, db: DbSession):
-    return _org(create_organization(db, user, data.name), "owner")
+def create_org(data: OrganizationCreate, user: CurrentUser, db: DbSession, ip: ClientIP):
+    organization = create_organization(db, user, data.name)
+    audit_service.record(db, "organization.create", user=user, organization_id=organization.id, ip=ip)
+    return _org(organization, "owner")
 
 
 @router.get("", response_model=list[OrganizationRead])
@@ -71,11 +76,21 @@ def list_members(access: OrgDep, db: DbSession):
 
 
 @router.post("/{organization_id}/members", status_code=status.HTTP_201_CREATED, response_model=MemberRead)
-def add_org_member(data: MemberAdd, access: OrgManagerDep, db: DbSession):
+def add_org_member(data: MemberAdd, access: OrgManagerDep, user: CurrentUser, db: DbSession, ip: ClientIP):
     try:
         membership = add_member(db, access.organization, data.email, data.role, access.membership.role)
     except MemberError as exc:
         raise HTTPException(exc.status_code, exc.message) from exc
+    audit_service.record(
+        db,
+        "member.add",
+        user=user,
+        organization_id=access.organization.id,
+        target_type="user",
+        target_id=membership.user_id,
+        ip=ip,
+        role=membership.role,
+    )
     user = membership.user
     return MemberRead(
         user_id=user.id,
@@ -87,11 +102,20 @@ def add_org_member(data: MemberAdd, access: OrgManagerDep, db: DbSession):
 
 
 @router.delete("/{organization_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_org_member(user_id: uuid.UUID, access: OrgManagerDep, db: DbSession):
+def remove_org_member(user_id: uuid.UUID, access: OrgManagerDep, user: CurrentUser, db: DbSession, ip: ClientIP):
     try:
         remove_member(db, access.organization, user_id, access.membership.role)
     except MemberError as exc:
         raise HTTPException(exc.status_code, exc.message) from exc
+    audit_service.record(
+        db,
+        "member.remove",
+        user=user,
+        organization_id=access.organization.id,
+        target_type="user",
+        target_id=user_id,
+        ip=ip,
+    )
 
 
 # ---------------------------------------------------------------- workspaces
@@ -105,10 +129,20 @@ def list_workspaces(access: OrgDep, db: DbSession):
 
 
 @router.post("/{organization_id}/workspaces", status_code=status.HTTP_201_CREATED, response_model=WorkspaceRead)
-def create_workspace(data: WorkspaceCreate, access: OrgManagerDep, db: DbSession):
+def create_workspace(data: WorkspaceCreate, access: OrgManagerDep, user: CurrentUser, db: DbSession, ip: ClientIP):
     workspace = Workspace(organization_id=access.organization.id, name=data.name, description=data.description)
     db.add(workspace)
     db.commit()
+    audit_service.record(
+        db,
+        "workspace.create",
+        user=user,
+        organization_id=access.organization.id,
+        target_type="workspace",
+        target_id=workspace.id,
+        ip=ip,
+        name=workspace.name,
+    )
     return workspace
 
 
@@ -125,11 +159,40 @@ def list_providers(access: OrgDep, db: DbSession):
 
 
 @router.post("/{organization_id}/providers", status_code=status.HTTP_201_CREATED, response_model=ProviderRead)
-def add_provider(data: ProviderCreate, access: OrgManagerDep, db: DbSession):
+def add_provider(data: ProviderCreate, access: OrgManagerDep, user: CurrentUser, db: DbSession, ip: ClientIP):
     """Validates the key with the provider before storing it encrypted. Owners/admins only."""
     try:
-        return create_credential(db, access.organization.id, data)
+        credential = create_credential(db, access.organization.id, data)
     except ProviderConfigError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     except LLMError as exc:
         raise llm_http_error(exc) from exc
+    audit_service.record(
+        db,
+        "provider.create",
+        user=user,
+        organization_id=access.organization.id,
+        target_type="provider",
+        target_id=credential.id,
+        ip=ip,
+        provider=credential.provider,
+        label=credential.label,
+    )
+    return credential
+
+
+# ---------------------------------------------------------------- audit trail
+
+
+@router.get("/{organization_id}/audit-logs", response_model=list[AuditLogRead])
+def list_audit_logs(
+    access: OrgManagerDep,
+    db: DbSession,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    action: Annotated[str | None, Query(max_length=60, description="e.g. document.delete")] = None,
+):
+    """Most recent first. Owners/admins only."""
+    query = select(AuditLog).where(AuditLog.organization_id == access.organization.id)
+    if action:
+        query = query.where(AuditLog.action == action)
+    return db.scalars(query.order_by(AuditLog.created_at.desc()).limit(limit)).all()

@@ -1,3 +1,4 @@
+from app.models.audit import AuditLog
 from app.models.chunk import DocumentChunk
 from app.models.conversation import Conversation, Message, MessageCitation
 from app.models.document import Document, DocumentStatus, IngestionJob
@@ -7,6 +8,7 @@ from app.models.user import AuthSession, User
 
 __all__ = [
     "MANAGER_ROLES",
+    "AuditLog",
     "AuthSession",
     "Conversation",
     "Document",

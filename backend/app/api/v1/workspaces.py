@@ -4,7 +4,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile, status
 from sqlalchemy import select
 
-from app.api.deps import CurrentUser, DbSession, WorkspaceDep, require_manager
+from app.api.deps import ClientIP, CurrentUser, DbSession, WorkspaceDep, require_manager
 from app.core.config import get_settings
 from app.models import Conversation, Document, ProviderCredential
 from app.rag.embeddings import get_embedding_provider
@@ -13,6 +13,7 @@ from app.schemas.chat import ConversationCreate, ConversationRead
 from app.schemas.document import DocumentRead, DocumentUploadResponse
 from app.schemas.organization import WorkspaceRead
 from app.schemas.search import SearchRequest, SearchResponse, SearchResult
+from app.services import audit_service
 from app.services.document_service import UploadError, create_document, validate_upload
 from app.services.organization_service import delete_workspace
 from app.tasks.ingestion_tasks import ingest_document_task
@@ -37,10 +38,21 @@ def get_workspace(access: WorkspaceDep):
 
 
 @router.delete("/{workspace_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_workspace(access: WorkspaceDep, db: DbSession):
+def remove_workspace(access: WorkspaceDep, user: CurrentUser, db: DbSession, ip: ClientIP):
     """Deletes the workspace with all its documents, chunks, conversations and stored files."""
     require_manager(access.membership)
+    workspace_id, org_id, name = access.workspace.id, access.workspace.organization_id, access.workspace.name
     delete_workspace(db, access.workspace)
+    audit_service.record(
+        db,
+        "workspace.delete",
+        user=user,
+        organization_id=org_id,
+        target_type="workspace",
+        target_id=workspace_id,
+        ip=ip,
+        name=name,
+    )
 
 
 # ---------------------------------------------------------------- documents
@@ -48,7 +60,12 @@ def remove_workspace(access: WorkspaceDep, db: DbSession):
 
 @router.post("/{workspace_id}/documents", status_code=status.HTTP_202_ACCEPTED, response_model=DocumentUploadResponse)
 def upload_document(
-    access: WorkspaceDep, user: CurrentUser, file: UploadFile, background_tasks: BackgroundTasks, db: DbSession
+    access: WorkspaceDep,
+    user: CurrentUser,
+    file: UploadFile,
+    background_tasks: BackgroundTasks,
+    db: DbSession,
+    ip: ClientIP,
 ):
     try:
         validated = validate_upload(file.filename, file.file)
@@ -56,6 +73,18 @@ def upload_document(
         raise HTTPException(exc.status_code, exc.message) from exc
 
     document = create_document(db, validated, access.workspace.id, user.id)
+    audit_service.record(
+        db,
+        "document.upload",
+        user=user,
+        organization_id=access.workspace.organization_id,
+        target_type="document",
+        target_id=document.id,
+        ip=ip,
+        filename=document.filename,
+        workspace_id=str(access.workspace.id),
+        size=document.file_size,
+    )
     background_tasks.add_task(ingest_document_task, document.id)
     return DocumentUploadResponse(
         document_id=document.id,

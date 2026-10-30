@@ -5,7 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 
-from app.api.deps import CurrentUser, DbSession, DocumentDep, membership_for, require_manager
+from app.api.deps import ClientIP, CurrentUser, DbSession, DocumentDep, membership_for, require_manager
 from app.models import Document, DocumentChunk, DocumentStatus, Workspace
 from app.schemas.document import (
     ChunkPage,
@@ -13,6 +13,7 @@ from app.schemas.document import (
     DocumentRead,
     DocumentStatusRead,
 )
+from app.services import audit_service
 from app.services.document_service import delete_document
 from app.tasks.ingestion_tasks import ingest_document_task
 
@@ -92,9 +93,20 @@ def reprocess_document(document: DocumentDep, background_tasks: BackgroundTasks,
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_document(document: DocumentDep, user: CurrentUser, db: DbSession):
+def remove_document(document: DocumentDep, user: CurrentUser, db: DbSession, ip: ClientIP):
     """The uploader, or an owner/admin of the organization, can delete a document."""
+    workspace = db.get(Workspace, document.workspace_id)
     if document.uploaded_by != user.id:
-        workspace = db.get(Workspace, document.workspace_id)
         require_manager(membership_for(db, user, workspace.organization_id))
+    document_id, filename = document.id, document.filename
     delete_document(db, document)
+    audit_service.record(
+        db,
+        "document.delete",
+        user=user,
+        organization_id=workspace.organization_id,
+        target_type="document",
+        target_id=document_id,
+        ip=ip,
+        filename=filename,
+    )

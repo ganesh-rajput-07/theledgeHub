@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import ClientIP, CurrentUser, DbSession
+from app.core.config import get_settings
+from app.core.rate_limit import limiter
 from app.models import Membership, Organization
 from app.schemas.auth import (
     LoginRequest,
@@ -12,7 +14,7 @@ from app.schemas.auth import (
     TokenResponse,
     UserRead,
 )
-from app.services import auth_service
+from app.services import audit_service, auth_service
 from app.services.auth_service import AuthError, EmailTakenError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -22,20 +24,45 @@ def _unauthorized(exc: Exception) -> HTTPException:
     return HTTPException(status.HTTP_401_UNAUTHORIZED, str(exc), headers={"WWW-Authenticate": "Bearer"})
 
 
+def _enforce(key: str, limit: int) -> None:
+    wait = limiter.retry_after(key, limit, get_settings().rate_limit_window_seconds)
+    if wait:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Too many attempts. Try again in {wait // 60 + 1} minute(s).",
+            headers={"Retry-After": str(wait)},
+        )
+
+
 @router.post("/register", status_code=status.HTTP_201_CREATED, response_model=UserRead)
-def register(data: RegisterRequest, db: DbSession):
+def register(data: RegisterRequest, db: DbSession, ip: ClientIP):
+    _enforce(f"register:ip:{ip}", get_settings().register_ip_max_attempts)
+    limiter.hit(f"register:ip:{ip}")
     try:
-        return auth_service.register(db, data.email, data.password, data.full_name, data.organization_name)
+        user = auth_service.register(db, data.email, data.password, data.full_name, data.organization_name)
     except EmailTakenError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    audit_service.record(db, "auth.register", user=user, ip=ip)
+    return user
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(data: LoginRequest, db: DbSession):
+def login(data: LoginRequest, db: DbSession, ip: ClientIP):
+    """Locks an account after LOGIN_MAX_FAILURES failed attempts and an IP after LOGIN_IP_MAX_ATTEMPTS
+    attempts, both per RATE_LIMIT_WINDOW_SECONDS."""
+    settings = get_settings()
+    email_key, ip_key = f"login:email:{auth_service.normalize_email(data.email)}", f"login:ip:{ip}"
+    _enforce(email_key, settings.login_max_failures)
+    _enforce(ip_key, settings.login_ip_max_attempts)
+    limiter.hit(ip_key)
     try:
         user = auth_service.authenticate(db, data.email, data.password)
     except AuthError as exc:
+        limiter.hit(email_key)
+        audit_service.record(db, "auth.login_failed", email=auth_service.normalize_email(data.email), ip=ip)
         raise _unauthorized(exc) from exc
+    limiter.reset(email_key)
+    audit_service.record(db, "auth.login", user=user, ip=ip)
     return auth_service.issue_tokens(db, user)
 
 

@@ -44,3 +44,17 @@ class WorkspaceRead(BaseModel):
     name: str
     description: str | None
     created_at: datetime
+
+
+class AuditLogRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    action: str
+    user_id: uuid.UUID | None
+    actor_email: str | None
+    target_type: str | None
+    target_id: str | None
+    ip_address: str | None
+    details: dict
+    created_at: datetime
