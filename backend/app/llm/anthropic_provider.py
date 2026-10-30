@@ -8,6 +8,7 @@ from app.llm.base import (
     LLMRateLimitError,
     LLMRefusalError,
     LLMResponse,
+    LLMUnavailableError,
 )
 
 # Models that accept output_config.effort. Opus 5.5 defaults to "medium" - we set it explicitly.
@@ -80,6 +81,10 @@ class _translate_errors:
             raise LLMRateLimitError("Anthropic rate limit or quota exceeded") from exc
         if isinstance(exc, anthropic.NotFoundError):
             raise LLMModelNotFoundError("Model not found for this Anthropic key") from exc
+        if isinstance(exc, anthropic.APIStatusError) and exc.status_code in (503, 529):
+            raise LLMUnavailableError(
+                "Anthropic is overloaded right now. Try again in a minute, or switch to another model."
+            ) from exc
         if isinstance(exc, anthropic.APIStatusError):
             raise LLMProviderError(f"Anthropic error {exc.status_code}: {exc.message}") from exc
         if isinstance(exc, anthropic.APIConnectionError):

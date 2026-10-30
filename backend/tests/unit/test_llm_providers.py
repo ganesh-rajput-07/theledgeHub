@@ -8,7 +8,14 @@ from anthropic import DefaultHttpxClient as AnthropicHttpClient
 from openai import DefaultHttpxClient as OpenAIHttpClient
 
 from app.llm.anthropic_provider import AnthropicProvider
-from app.llm.base import ChatMessage, LLMAuthError, LLMModelNotFoundError, LLMRateLimitError, LLMRefusalError
+from app.llm.base import (
+    ChatMessage,
+    LLMAuthError,
+    LLMModelNotFoundError,
+    LLMRateLimitError,
+    LLMRefusalError,
+    LLMUnavailableError,
+)
 from app.llm.mock_provider import MockProvider
 from app.llm.openai_provider import OpenAIProvider
 
@@ -75,7 +82,13 @@ def test_anthropic_refusal_and_truncation():
 
 @pytest.mark.parametrize(
     ("status", "error"),
-    [(401, LLMAuthError), (403, LLMAuthError), (404, LLMModelNotFoundError), (429, LLMRateLimitError)],
+    [
+        (401, LLMAuthError),
+        (403, LLMAuthError),
+        (404, LLMModelNotFoundError),
+        (429, LLMRateLimitError),
+        (529, LLMUnavailableError),
+    ],
 )
 def test_anthropic_errors_are_translated(status, error):
     body = {"type": "error", "error": {"type": "x", "message": "nope"}}
@@ -155,3 +168,44 @@ def test_mock_provider_rewrites_follow_ups():
     assert MockProvider().generate("S", [ChatMessage("user", prompt)], "mock-1", 100).text == (
         "What was revenue in 2025? And 2024?"
     )
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (
+            lambda e: e.ServerError(503, {"error": {"code": 503, "message": "high demand", "status": "UNAVAILABLE"}}),
+            LLMUnavailableError,
+        ),
+        (
+            lambda e: e.ClientError(
+                400, {"error": {"code": 400, "message": "API key not valid", "status": "INVALID_ARGUMENT"}}
+            ),
+            LLMAuthError,
+        ),
+        (
+            lambda e: e.ClientError(429, {"error": {"code": 429, "message": "quota", "status": "RESOURCE_EXHAUSTED"}}),
+            LLMRateLimitError,
+        ),
+    ],
+)
+def test_gemini_errors_are_translated(monkeypatch, error, expected):
+    from google.genai import errors
+
+    from app.llm.gemini_provider import GeminiProvider
+
+    provider = GeminiProvider("test-key", timeout=10)
+
+    def fail(**kwargs):
+        raise error(errors)
+
+    monkeypatch.setattr(provider._client.models, "generate_content", fail)
+    with pytest.raises(expected):
+        provider.generate("S", MESSAGES, "gemini-test", 100)
+
+
+def test_gemini_client_retries_transient_errors():
+    from app.llm.gemini_provider import GeminiProvider
+
+    options = GeminiProvider("test-key", timeout=10)._client._api_client._http_options.retry_options
+    assert options.attempts == 3

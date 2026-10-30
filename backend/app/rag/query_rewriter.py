@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from app.llm.base import ChatMessage, LLMProvider
+from app.llm.base import ChatMessage, LLMAuthError, LLMProvider, LLMRateLimitError, LLMUnavailableError
 
 REWRITE_SYSTEM_PROMPT = """You turn the user's latest message into a standalone search query for a \
 document search engine. Use the conversation only to resolve references such as "it", "that year", \
@@ -43,7 +43,10 @@ def rewrite_query(
         response = llm.generate(
             REWRITE_SYSTEM_PROMPT, [ChatMessage("user", _render(history, question))], model, max_tokens
         )
-    except Exception:  # noqa: BLE001 - a failed rewrite must never block the answer
+    except (LLMAuthError, LLMRateLimitError, LLMUnavailableError):
+        # The answer call would hit the same wall: fail now instead of making the user wait twice.
+        raise
+    except Exception:  # noqa: BLE001 - any other rewrite failure must never block the answer
         return RewrittenQuery(_concat_fallback(history, question), "concat")
 
     query = response.text.strip().strip('"').strip()

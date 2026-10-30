@@ -41,6 +41,11 @@ class LLMProviderError(LLMError):
     """Any other provider or network failure."""
 
 
+class LLMUnavailableError(LLMProviderError):
+    """The provider is overloaded or temporarily down (HTTP 503 / Anthropic 529). Retrying later, or
+    switching to another model, usually helps; nothing is wrong with the request or the key."""
+
+
 class LLMProvider(Protocol):
     """Every provider adapter implements this; nothing outside app/llm imports a vendor SDK."""
 

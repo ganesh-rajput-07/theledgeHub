@@ -8,6 +8,7 @@ from app.llm.base import (
     LLMProviderError,
     LLMRateLimitError,
     LLMResponse,
+    LLMUnavailableError,
 )
 
 
@@ -15,7 +16,15 @@ class GeminiProvider:
     name = "gemini"
 
     def __init__(self, api_key: str, timeout: float):
-        self._client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=int(timeout * 1000)))
+        self._client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(
+                timeout=int(timeout * 1000),
+                # The SDK doesn't retry by default; match the OpenAI/Anthropic clients (3 attempts in total)
+                # so short overload spikes (429/503) are ridden out.
+                retry_options=types.HttpRetryOptions(attempts=3, initial_delay=1.0, max_delay=8.0),
+            ),
+        )
 
     def list_models(self) -> list[str]:
         with _translate_errors():
@@ -59,6 +68,10 @@ class _translate_errors:
             if exc.code == 404:
                 raise LLMModelNotFoundError("Model not found for this Gemini key") from exc
             raise LLMProviderError(f"Gemini error {exc.code}: {exc.message}") from exc
+        if isinstance(exc, errors.ServerError) and exc.code == 503:
+            raise LLMUnavailableError(
+                "Gemini is overloaded right now (503). Try again in a minute, or switch to another model."
+            ) from exc
         if isinstance(exc, errors.APIError):
             raise LLMProviderError(f"Gemini error {exc.code}: {exc.message}") from exc
         return False

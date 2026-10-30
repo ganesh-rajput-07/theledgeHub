@@ -15,7 +15,6 @@ class ProviderName(StrEnum):
 
 # Providers that need a customer API key (BYOK). Ollama needs a base URL instead.
 KEYED_PROVIDERS = {ProviderName.OPENAI, ProviderName.ANTHROPIC, ProviderName.GEMINI}
-DEFAULT_OLLAMA_URL = "http://localhost:11434"
 
 
 def build_provider(provider: str, api_key: str | None = None, base_url: str | None = None) -> LLMProvider:
@@ -36,7 +35,7 @@ def build_provider(provider: str, api_key: str | None = None, base_url: str | No
         case ProviderName.OLLAMA:
             from app.llm.ollama_provider import OllamaProvider
 
-            return OllamaProvider(base_url or DEFAULT_OLLAMA_URL, timeout=settings.ollama_timeout_seconds)
+            return OllamaProvider(base_url or settings.ollama_base_url, timeout=settings.ollama_timeout_seconds)
         case ProviderName.MOCK:
             from app.llm.mock_provider import MockProvider
 

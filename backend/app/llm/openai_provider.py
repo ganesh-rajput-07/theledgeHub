@@ -8,6 +8,7 @@ from app.llm.base import (
     LLMRateLimitError,
     LLMRefusalError,
     LLMResponse,
+    LLMUnavailableError,
 )
 
 
@@ -65,6 +66,10 @@ class _translate_errors:
             raise LLMRateLimitError("OpenAI rate limit or quota exceeded") from exc
         if isinstance(exc, openai.NotFoundError):
             raise LLMModelNotFoundError("Model not found for this OpenAI key") from exc
+        if isinstance(exc, openai.APIStatusError) and exc.status_code == 503:
+            raise LLMUnavailableError(
+                "OpenAI is overloaded right now. Try again in a minute, or switch to another model."
+            ) from exc
         if isinstance(exc, openai.APIStatusError):
             raise LLMProviderError(f"OpenAI error {exc.status_code}: {exc.message}") from exc
         if isinstance(exc, openai.APIConnectionError):

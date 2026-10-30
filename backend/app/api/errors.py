@@ -6,11 +6,14 @@ from app.llm.base import (
     LLMModelNotFoundError,
     LLMRateLimitError,
     LLMRefusalError,
+    LLMUnavailableError,
 )
 
 
 def llm_http_error(exc: LLMError) -> HTTPException:
     """Map provider failures to responses that tell the customer what to fix."""
+    if isinstance(exc, LLMUnavailableError):
+        return HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc), headers={"Retry-After": "30"})
     if isinstance(exc, LLMAuthError):
         code = status.HTTP_400_BAD_REQUEST  # their key is wrong; our API auth is fine
     elif isinstance(exc, LLMRateLimitError):

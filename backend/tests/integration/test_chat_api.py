@@ -3,7 +3,7 @@ from sqlalchemy import select
 
 from app.database.session import SessionLocal
 from app.llm import factory
-from app.llm.base import LLMAuthError, LLMRateLimitError, LLMResponse
+from app.llm.base import LLMAuthError, LLMProviderError, LLMRateLimitError, LLMResponse, LLMUnavailableError
 from app.models import ProviderCredential
 from app.rag.query_rewriter import REWRITE_SYSTEM_PROMPT
 from tests.factories import make_pdf
@@ -350,7 +350,21 @@ def test_failed_rewrite_falls_back_to_previous_question(api, fake):
     conversation = openai_conversation(api, [finance])
     ask(api, conversation["id"], "What was total revenue in fiscal year 2025?")
 
-    fake.rewrite_error = LLMRateLimitError("slow down")
+    fake.rewrite_error = LLMProviderError("unexpected rewrite failure")
     body = ask(api, conversation["id"], "And the growth?").json()
     assert body["status"] == "completed"
     assert body["search_query"] == "What was total revenue in fiscal year 2025? And the growth?"
+
+
+def test_overloaded_provider_fails_fast_with_503(api, fake):
+    finance = upload(api, "finance-overload.pdf", FINANCE)
+    conversation = openai_conversation(api, [finance])
+    ask(api, conversation["id"], "What was total revenue in fiscal year 2025?")
+    answers_before = len(fake.calls)
+
+    fake.rewrite_error = LLMUnavailableError("Gemini is overloaded right now (503).")
+    response = ask(api, conversation["id"], "And the year before?")
+    assert response.status_code == 503
+    assert response.headers["retry-after"] == "30"
+    assert "overloaded" in response.json()["detail"]
+    assert len(fake.calls) == answers_before  # no second, equally doomed, call to the provider
