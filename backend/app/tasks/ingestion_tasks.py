@@ -1,10 +1,12 @@
 import uuid
 
 from app.database.session import SessionLocal
-from app.ingestion.pipeline import run_ingestion
+from app.ingestion.queue import claim, process
 
 
-def ingest_document_task(document_id: uuid.UUID) -> None:
-    """Background entry point: uses its own session, never the request's."""
+def process_job_inline(job_id: uuid.UUID) -> None:
+    """INGESTION_MODE=inline: run a just-enqueued job in this API process, through the same claim/process
+    path as the worker (so a worker running at the same time can never process it twice)."""
     with SessionLocal() as db:
-        run_ingestion(db, document_id)
+        if (job := claim(db, job_id)) is not None:
+            process(db, job)

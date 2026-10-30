@@ -13,19 +13,22 @@ from app.models import Document, DocumentChunk, DocumentStatus, IngestionJob
 from app.rag.embeddings import get_embedding_provider
 
 
-def run_ingestion(db: Session, document_id: uuid.UUID) -> IngestionJob | None:
-    """Extract (+OCR) -> clean -> chunk -> embed -> store. Re-running replaces previous chunks."""
+def run_ingestion(db: Session, document_id: uuid.UUID, job: IngestionJob | None = None) -> IngestionJob | None:
+    """Extract (+OCR) -> clean -> chunk -> embed -> store. Re-running replaces previous chunks.
+    `job` is the queue job a worker already claimed; without one (scripts, evaluation) a job row is created."""
     document = db.get(Document, document_id)
     if document is None:
         return None
 
-    job = IngestionJob(
-        document_id=document.id,
-        status=DocumentStatus.PROCESSING,
-        started_at=datetime.now(UTC),
-    )
+    if job is None:
+        job = IngestionJob(
+            document_id=document.id,
+            status=DocumentStatus.PROCESSING,
+            started_at=datetime.now(UTC),
+            attempts=1,
+        )
+        db.add(job)
     document.status = DocumentStatus.PROCESSING
-    db.add(job)
     db.commit()
 
     settings = get_settings()

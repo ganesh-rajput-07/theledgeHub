@@ -6,7 +6,9 @@ from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 
 from app.api.deps import ClientIP, CurrentUser, DbSession, DocumentDep, membership_for, require_manager
-from app.models import Document, DocumentChunk, DocumentStatus, Workspace
+from app.core.config import get_settings
+from app.ingestion.queue import JobAlreadyActiveError, enqueue
+from app.models import Document, DocumentChunk, Workspace
 from app.schemas.document import (
     ChunkPage,
     DocumentDetail,
@@ -15,7 +17,7 @@ from app.schemas.document import (
 )
 from app.services import audit_service
 from app.services.document_service import delete_document
-from app.tasks.ingestion_tasks import ingest_document_task
+from app.tasks.ingestion_tasks import process_job_inline
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -84,11 +86,12 @@ def list_document_chunks(
 
 @router.post("/{document_id}/reprocess", status_code=status.HTTP_202_ACCEPTED, response_model=DocumentStatusRead)
 def reprocess_document(document: DocumentDep, background_tasks: BackgroundTasks, db: DbSession):
-    if document.status == DocumentStatus.PROCESSING:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Document is already being processed")
-    document.status = DocumentStatus.PENDING
-    db.commit()
-    background_tasks.add_task(ingest_document_task, document.id)
+    try:
+        job = enqueue(db, document)
+    except JobAlreadyActiveError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    if get_settings().ingestion_mode == "inline":
+        background_tasks.add_task(process_job_inline, job.id)
     return DocumentStatusRead(document_id=document.id, status=document.status, chunk_count=_chunk_count(db, document))
 
 

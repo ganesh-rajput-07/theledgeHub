@@ -53,6 +53,8 @@ class IngestionJob(Base):
     )
     status: Mapped[str] = mapped_column(String(30), default=DocumentStatus.PENDING, nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text)
+    # Incremented each time a worker claims the job; a crashed worker's job is retried a few times.
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

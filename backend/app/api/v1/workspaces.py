@@ -6,6 +6,7 @@ from sqlalchemy import select
 
 from app.api.deps import ClientIP, CurrentUser, DbSession, WorkspaceDep, require_manager
 from app.core.config import get_settings
+from app.ingestion.queue import enqueue
 from app.models import Conversation, Document, ProviderCredential
 from app.rag.embeddings import get_embedding_provider
 from app.rag.retriever import retrieve
@@ -16,7 +17,7 @@ from app.schemas.search import SearchRequest, SearchResponse, SearchResult
 from app.services import audit_service
 from app.services.document_service import UploadError, create_document, validate_upload
 from app.services.organization_service import delete_workspace
-from app.tasks.ingestion_tasks import ingest_document_task
+from app.tasks.ingestion_tasks import process_job_inline
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 
@@ -85,7 +86,9 @@ def upload_document(
         workspace_id=str(access.workspace.id),
         size=document.file_size,
     )
-    background_tasks.add_task(ingest_document_task, document.id)
+    job = enqueue(db, document)
+    if get_settings().ingestion_mode == "inline":
+        background_tasks.add_task(process_job_inline, job.id)
     return DocumentUploadResponse(
         document_id=document.id,
         filename=document.filename,
