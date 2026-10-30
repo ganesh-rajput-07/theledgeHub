@@ -1,0 +1,168 @@
+INFO:     ::1:0 - "DELETE /api/v1/documents/4322c1df-4374-483e-b0a8-53aa29fc8320 HTTP/1.1" 204 No Content
+INFO:     ::1:0 - "GET /api/v1/workspaces/56a739a4-cad9-4959-a874-33aed6104950/documents HTTP/1.1" 200 OK
+INFO:     ::1:0 - "GET /api/v1/workspaces/56a739a4-cad9-4959-a874-33aed6104950/documents HTTP/1.1" 200 OK
+INFO:     ::1:0 - "GET /api/v1/workspaces/56a739a4-cad9-4959-a874-33aed6104950 HTTP/1.1" 200 OK
+INFO:     ::1:0 - "GET /api/v1/workspaces/56a739a4-cad9-4959-a874-33aed6104950/conversations HTTP/1.1" 200 OK
+INFO:     ::1:0 - "GET /api/v1/organizations/74b655e6-c4e8-4ec9-a425-8a14ad9abd41/providers HTTP/1.1" 200 OK
+INFO:     ::1:0 - "GET /api/v1/conversations/f7611519-f3a5-4389-964a-85ed362b7e1a/messages HTTP/1.1" 200 OK
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/app/ingestion/queue.py", line 63, in process
+    run_ingestion(db, job.document_id, job=job)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/app/ingestion/pipeline.py", line 71, in run_ingestion
+    db.commit()
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2095, in commit
+    trans.commit(_to_root=True)
+  File "<sqlalchemy generated _go() wrapper for sqlalchemy.orm.session.SessionTransaction.commit>", line 2, in commit
+    return target(fn, self, _to_root=_to_root)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 1330, in commit
+    self._prepare_impl()
+  File "<sqlalchemy generated _go() wrapper for sqlalchemy.orm.session.SessionTransaction._prepare_impl>", line 2, in _prepare_impl
+    return target(fn, self)
+           ^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 1304, in _prepare_impl
+    self.session.flush()
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4543, in flush
+    self._flush(objects)
+  File "<sqlalchemy generated warned() wrapper for sqlalchemy.orm.session.Session._flush>", line 2, in _flush
+    return target(fn, self, objects=objects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/util/deprecations.py", line 281, in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4686, in _flush
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 166, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4647, in _flush
+    flush_context.execute()
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 467, in execute
+    rec.execute(self)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 643, in execute
+    util.preloaded.orm_persistence._save_obj(
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 84, in _save_obj
+    _emit_update_statements(
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 952, in _emit_update_statements
+    raise orm_exc.StaleDataError(
+sqlalchemy.orm.exc.StaleDataError: UPDATE statement on table 'documents' expected to update 1 row(s); 0 were matched.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 422, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 63, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/fastapi/applications.py", line 1194, in __call__
+    await super().__call__(scope, receive, send)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/starlette/applications.py", line 96, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/fastapi/telemetry/_asgi.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/starlette/routing.py", line 683, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 2811, in app
+    await route.handle(scope, receive, send)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 1839, in handle
+    await self.original_router.handle(scope, receive, send)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 2894, in handle
+    await included_router._handle_selected(scope, receive, send)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 1850, in _handle_selected
+    await route.handle(scope, receive, send)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 1839, in handle
+    await self.original_router.handle(scope, receive, send)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 2894, in handle
+    await included_router._handle_selected(scope, receive, send)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 1865, in _handle_selected
+    await original_route.handle(scope, receive, send)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 1328, in handle
+    await effective_context.app(scope, receive, send)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 166, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 153, in app
+    await response(scope, receive, send)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/starlette/responses.py", line 175, in __call__
+    await self.background()
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/fastapi/background.py", line 67, in __call__
+    await task()
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/starlette/background.py", line 23, in __call__
+    await run_in_threadpool(self.func, *self.args, **self.kwargs)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/anyio/to_thread.py", line 65, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 2706, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 1100, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/app/tasks/ingestion_tasks.py", line 12, in process_job_inline
+    process(db, job)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/app/ingestion/queue.py", line 65, in process
+    log.exception("Ingestion job %s crashed", job.id)
+                                              ^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/attributes.py", line 575, in __get__
+    return self.impl.get(state, dict_)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/attributes.py", line 1091, in get
+    value = self._fire_loader_callables(state, key, passive)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/attributes.py", line 1121, in _fire_loader_callables
+    return state._load_expired(state, passive)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/state.py", line 833, in _load_expired
+    self.manager.expired_attribute_loader(self, toload, passive)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/loading.py", line 1700, in _load_scalar_attributes
+    result = _load_on_ident(
+             ^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/loading.py", line 518, in _load_on_ident
+    return _load_on_pk_identity(
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/loading.py", line 702, in _load_on_pk_identity
+    session.execute(
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2473, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2350, in _execute_internal
+    conn = self._connection_for_bind(bind)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2173, in _connection_for_bind
+    return trans._connection_for_bind(engine, execution_options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<sqlalchemy generated _go() wrapper for sqlalchemy.orm.session.SessionTransaction._connection_for_bind>", line 2, in _connection_for_bind
+    return target(fn, self, bind, execution_options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/state_changes.py", line 101, in _go
+    self._raise_for_prerequisite_state(fn.__name__, current_state)
+  File "/home/codex/ganesh-rajput/DAY_07/Learning One/backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 987, in _raise_for_prerequisite_state
+    raise sa_exc.PendingRollbackError(
+sqlalchemy.exc.PendingRollbackError: This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: UPDATE statement on table 'documents' expected to update 1 row(s); 0 were matched. (Background on this error at: https://sqlalche.me/e/21/7s2a)
