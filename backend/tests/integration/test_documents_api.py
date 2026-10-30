@@ -82,3 +82,21 @@ def test_delete_removes_file_and_chunks(api):
 
 def test_unknown_document_returns_404(api):
     assert api.get("/api/v1/documents/00000000-0000-0000-0000-000000000000").status_code == 404
+
+
+def test_download_original_file(api, make_tenant):
+    pdf = make_pdf(["Downloadable page."])
+    document_id = upload(api, "download.pdf", pdf).json()["document_id"]
+    response = api.get(f"/api/v1/documents/{document_id}/file")
+    assert response.status_code == 200
+    assert response.content == pdf
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.headers["content-disposition"].startswith("inline")
+    assert response.headers["x-content-type-options"] == "nosniff"
+
+    markdown_id = upload(api, "notes.md", b"<script>alert(1)</script>", "text/markdown").json()["document_id"]
+    md = api.get(f"/api/v1/documents/{markdown_id}/file")
+    assert md.headers["content-type"].startswith("text/plain")
+    assert md.headers["content-disposition"].startswith("attachment")
+
+    assert make_tenant("other").get(f"/api/v1/documents/{document_id}/file").status_code == 404

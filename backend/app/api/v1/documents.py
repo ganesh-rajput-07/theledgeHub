@@ -1,6 +1,8 @@
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
+from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 
 from app.api.deps import CurrentUser, DbSession, DocumentDep, membership_for, require_manager
@@ -27,6 +29,26 @@ def get_document(document: DocumentDep, db: DbSession):
         **DocumentRead.model_validate(document).model_dump(),
         chunk_count=_chunk_count(db, document),
     )
+
+
+@router.get("/{document_id}/file", response_class=FileResponse)
+def download_document(document: DocumentDep):
+    """The original upload, for the citation viewer (PDFs open inline at #page=N)."""
+    path = Path(document.storage_path)
+    if not path.is_file():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "File is no longer stored")
+    # Text and Markdown are served as plain text so a browser never renders uploaded HTML/JS.
+    media_type = document.mime_type if document.mime_type in INLINE_TYPES else "text/plain; charset=utf-8"
+    return FileResponse(
+        path,
+        media_type=media_type,
+        filename=document.filename,
+        content_disposition_type="inline" if document.mime_type == "application/pdf" else "attachment",
+        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store"},
+    )
+
+
+INLINE_TYPES = {"application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
 
 
 @router.get("/{document_id}/status", response_model=DocumentStatusRead)
