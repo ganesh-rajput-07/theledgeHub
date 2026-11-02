@@ -1,9 +1,12 @@
+import logging
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import delete
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.core.config import get_settings
 from app.ingestion.chunker import chunk_pages, get_token_counter
@@ -11,6 +14,8 @@ from app.ingestion.cleaner import clean_text
 from app.ingestion.extractors import ExtractedPage, ExtractionError, extract
 from app.models import Document, DocumentChunk, DocumentStatus, IngestionJob
 from app.rag.embeddings import get_embedding_provider
+
+log = logging.getLogger("knowledgehub.ingestion")
 
 
 def run_ingestion(db: Session, document_id: uuid.UUID, job: IngestionJob | None = None) -> IngestionJob | None:
@@ -68,5 +73,11 @@ def run_ingestion(db: Session, document_id: uuid.UUID, job: IngestionJob | None 
         document.status = job.status = DocumentStatus.FAILED
         job.error_message = str(exc)[:2000]
     job.completed_at = datetime.now(UTC)
-    db.commit()
+    try:
+        db.commit()
+    except (StaleDataError, IntegrityError):
+        # The document was deleted while it was being processed: nothing left to record.
+        db.rollback()
+        log.info("Document %s was deleted during ingestion; result discarded", document_id)
+        return None
     return job
