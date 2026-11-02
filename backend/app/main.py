@@ -1,3 +1,6 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from sqlalchemy import text
 
@@ -7,7 +10,23 @@ from app.database.session import engine
 
 settings = get_settings()
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Load the local models now, so the first question doesn't spend its time (and the browser's patience) on it.
+    from app.rag.embeddings import get_embedding_provider
+
+    get_embedding_provider()
+    if settings.rerank_enabled:
+        from app.rag.reranker import get_reranker
+
+        get_reranker()
+    logging.getLogger("knowledgehub").info("Models loaded")
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title=settings.app_name,
     description="AI-powered Research and Document Intelligence",
     version="0.1.0",
