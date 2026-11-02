@@ -59,12 +59,13 @@ def claim(db: Session, job_id: uuid.UUID | None = None) -> IngestionJob | None:
 
 
 def process(db: Session, job: IngestionJob) -> None:
+    job_id = job.id  # read now: the instance expires on rollback
     try:
         run_ingestion(db, job.document_id, job=job)
     except Exception:
-        log.exception("Ingestion job %s crashed", job.id)
+        log.exception("Ingestion job %s crashed", job_id)
         db.rollback()
-        if (stored := db.get(IngestionJob, job.id)) is not None:
+        if (stored := db.get(IngestionJob, job_id)) is not None:
             stored.status = DocumentStatus.FAILED
             stored.error_message = "Processing crashed unexpectedly"
             stored.completed_at = datetime.now(UTC)
