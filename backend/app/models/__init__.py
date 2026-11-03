@@ -2,6 +2,7 @@ from app.models.audit import AuditLog
 from app.models.chunk import DocumentChunk
 from app.models.conversation import Conversation, Message, MessageCitation
 from app.models.document import Document, DocumentStatus, IngestionJob
+from app.models.extraction import Extraction, ExtractionStatus
 from app.models.organization import MANAGER_ROLES, Membership, Organization, Role, Workspace
 from app.models.provider import ProviderCredential
 from app.models.rate_limit import RateLimitEvent
@@ -15,6 +16,8 @@ __all__ = [
     "Document",
     "DocumentChunk",
     "DocumentStatus",
+    "Extraction",
+    "ExtractionStatus",
     "IngestionJob",
     "Membership",
     "Message",

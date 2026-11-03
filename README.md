@@ -71,6 +71,7 @@ Full interactive reference: http://127.0.0.1:8001/docs
 | Search | `POST workspaces/{id}/search` (`query`, `top_k` 1–50, `document_ids`, `min_score`) |
 | Provider keys (BYOK) | `GET/POST organizations/{id}/providers` · `GET/PATCH/DELETE providers/{id}` · `POST providers/{id}/validate` |
 | Chat | `GET/POST workspaces/{id}/conversations` · `GET/DELETE conversations/{id}` · `GET/POST conversations/{id}/messages` · `GET messages/{id}/citations` |
+| Extraction | `GET extraction-schemas` · `POST/GET/PATCH documents/{id}/extraction` · `POST documents/{id}/extraction/approve` · `GET workspaces/{id}/extractions` (`status`) · `GET workspaces/{id}/extractions/export` (approved → Excel) |
 
 **Roles**: members upload, search and chat; owners/admins also manage provider keys, members and workspaces.
 Documents can be deleted by their uploader or an owner/admin. Conversations are private to their creator.

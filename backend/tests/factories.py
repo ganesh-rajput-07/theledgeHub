@@ -36,3 +36,19 @@ def make_scanned_pdf(pages: list[str]) -> bytes:
     data = scan.tobytes()
     scan.close()
     return data
+
+
+def make_invoice_pdf(seed: int, scanned: bool = False) -> tuple[bytes, dict]:
+    """A synthetic GST invoice (from the evaluation generator) and the values printed on it."""
+    import random
+
+    from evaluation.invoices import draw, make_invoice, scan
+
+    rng = random.Random(seed)
+    invoice = make_invoice(seed, rng)
+    doc = draw(invoice, seed % 3)
+    if scanned:
+        doc = scan(doc, rng)
+    data = doc.tobytes()
+    doc.close()
+    return data, invoice
