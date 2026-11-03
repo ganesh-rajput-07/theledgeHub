@@ -1,6 +1,7 @@
 # KnowledgeHub AI - backend dependencies
-# Python 3.12 | resolved & verified together on 2026-10-30
-# CPU-only PyTorch (≈200 MB instead of ≈2.5 GB CUDA build) - fine for local embeddings.
+# Python 3.12 | CPU-only | Local LLM + RAG
+# Existing dependency versions retained
+
 --extra-index-url https://download.pytorch.org/whl/cpu
 
 # ---- Web / API ----
@@ -22,15 +23,20 @@ python-docx==1.2.0
 pandas==3.1.0
 openpyxl==3.1.5
 filetype==1.2.0
-# OCR for scanned PDFs: pure pip (ONNX Runtime, models bundled in the wheel), no system Tesseract.
+
+# OCR for scanned PDFs
 rapidocr==3.10.0
 onnxruntime==1.31.1
 
-# ---- Embeddings (local, ₹0) ----
+# ---- Embeddings: Local CPU ----
 torch==2.15.0+cpu
 sentence-transformers==6.2.0
-transformers==5.22.0
 numpy==2.5.4
+
+# ---- Local LLM: Hugging Face Transformers ----
+transformers==5.22.0
+huggingface-hub
+safetensors
 
 # ---- BYOK LLM provider SDKs ----
 openai==3.41.0
@@ -38,7 +44,7 @@ anthropic==2.3.0
 google-genai==2.34.0
 ollama==0.6.3
 
-# ---- Auth & security (JWT, Argon2, API-key encryption) ----
+# ---- Auth & security ----
 pyjwt==2.15.1
 pwdlib[argon2]==0.3.1
 cryptography==50.0.2

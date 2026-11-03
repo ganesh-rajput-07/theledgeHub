@@ -11,3 +11,4 @@ backend/storage/*
 node_modules/
 .next/
 backend/evaluation/results/
+models/*
