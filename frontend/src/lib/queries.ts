@@ -8,6 +8,8 @@ import type {
   ChatMessage,
   Conversation,
   DocumentItem,
+  Extraction,
+  ExtractionSchema,
   Me,
   Member,
   Organization,
@@ -24,6 +26,8 @@ export const keys = {
   providers: (orgId: string) => ["orgs", orgId, "providers"] as const,
   workspace: (id: string) => ["workspaces", id] as const,
   documents: (wsId: string) => ["workspaces", wsId, "documents"] as const,
+  extractions: (wsId: string) => ["workspaces", wsId, "extractions"] as const,
+  extractionSchemas: ["extraction-schemas"] as const,
   conversations: (wsId: string) => ["workspaces", wsId, "conversations"] as const,
   messages: (conversationId: string) => ["conversations", conversationId, "messages"] as const,
 };
@@ -80,4 +84,18 @@ export const useAuditLog = (orgId: string, enabled: boolean) =>
     queryKey: keys.audit(orgId),
     queryFn: () => api<AuditEntry[]>(`organizations/${orgId}/audit-logs?limit=50`),
     enabled,
+  });
+
+export const useExtractions = (wsId: string) =>
+  useQuery({
+    queryKey: keys.extractions(wsId),
+    queryFn: () => api<Extraction[]>(`workspaces/${wsId}/extractions`),
+    refetchInterval: (query) => (query.state.data?.some((e) => e.status === "processing") ? 2000 : false),
+  });
+
+export const useExtractionSchemas = () =>
+  useQuery({
+    queryKey: keys.extractionSchemas,
+    queryFn: () => api<ExtractionSchema[]>("extraction-schemas"),
+    staleTime: Infinity,
   });

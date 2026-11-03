@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpenText, FileText, LayoutDashboard, LogOut, MessageSquareText, Settings } from "lucide-react";
+import { BookOpenText, ClipboardCheck, FileText, LayoutDashboard, LogOut, MessageSquareText, Settings } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
@@ -111,6 +111,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </NavLink>
                 <NavLink href={`/w/${wsId}/documents`} icon={<FileText className="size-4" />}>
                   Documents
+                </NavLink>
+                <NavLink href={`/w/${wsId}/review`} icon={<ClipboardCheck className="size-4" />}>
+                  Review
                 </NavLink>
                 <NavLink href={`/w/${wsId}/research`} icon={<MessageSquareText className="size-4" />}>
                   Research

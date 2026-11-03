@@ -126,3 +126,37 @@ export interface AuditEntry {
   details: Record<string, unknown>;
   created_at: string;
 }
+
+export interface ExtractionField {
+  key: string;
+  label: string;
+  type: "text" | "date" | "amount" | "gstin";
+  required: boolean;
+}
+
+export interface ExtractionSchema {
+  key: string;
+  name: string;
+  fields: ExtractionField[];
+}
+
+export interface ExtractionIssue {
+  code: string;
+  message: string;
+  field: string | null;
+  severity: "error" | "warning";
+}
+
+export interface Extraction {
+  id: string;
+  document_id: string;
+  filename: string;
+  schema_key: string;
+  status: "processing" | "needs_review" | "approved" | "failed";
+  values: Record<string, string | number | null>;
+  issues: ExtractionIssue[];
+  model: string | null;
+  error_message: string | null;
+  reviewed_at: string | null;
+  updated_at: string;
+}
