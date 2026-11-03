@@ -12,3 +12,4 @@ node_modules/
 .next/
 backend/evaluation/results/
 models/*
+backend/evaluation/invoices_data/
