@@ -18,130 +18,38 @@ import time
 from datetime import UTC, date, datetime
 from pathlib import Path
 
-import pymupdf
-
 from app.core.config import get_settings
-from app.ingestion.ocr import ocr_page
-from app.llm.base import ChatMessage, LLMError
+from app.extraction.extractor import llm_extract, merge
+from app.extraction.invoice import extract_invoice
+from app.extraction.schema import INVOICE
+from app.extraction.values import parse_amount, parse_date
+from app.ingestion.extractors import extract
+from app.llm.base import LLMError
 from app.llm.ollama_provider import OllamaProvider
 
 HERE = Path(__file__).parent
-FIELDS = ["vendor_name", "vendor_gstin", "buyer_name", "buyer_gstin", "invoice_number", "invoice_date",
-          "subtotal", "tax_total", "total"]
-AMOUNT_FIELDS = {"subtotal", "tax_total", "total"}
-NAME_FIELDS = {"vendor_name", "buyer_name"}
+FIELDS = [spec.key for spec in INVOICE.fields]
+AMOUNT_FIELDS = {spec.key for spec in INVOICE.fields if spec.type == "amount"}
 AMOUNT_TOLERANCE = 0.02  # the generator splits tax into two rounded halves (CGST + SGST)
-OCR_DPI = 150
-MAX_TEXT_CHARS = 6000
-
-SYSTEM_PROMPT = (
-    "You extract data from invoices. Reply with one JSON object and nothing else, with exactly these keys: "
-    + ", ".join(FIELDS)
-    + ". vendor = the company issuing the invoice; buyer = the company billed. invoice_date as YYYY-MM-DD. "
-    "Amounts as plain numbers without currency or commas; tax_total = all GST (CGST+SGST or IGST) combined; "
-    "total = the grand total. Use null for anything not present. Copy values exactly; never invent any."
-)
-
-GSTIN = re.compile(r"\b\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]\b")
-AMOUNT = r"([\d,]+\.\d{2})"
-DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y", "%d-%b-%Y", "%d.%m.%y", "%d-%m-%Y", "%d/%m/%y")
 
 
 # ---------------------------------------------------------------- text acquisition
 def read_text(path: Path) -> tuple[str, bool, float]:
-    """Embedded text if the PDF has any, otherwise OCR. Returns (text, used_ocr, seconds)."""
+    """The same text the app extracts from a PDF (embedded text, OCR for scans). Returns (text, used_ocr, seconds)."""
     start = time.perf_counter()
-    with pymupdf.open(path) as doc:
-        text = "\n".join(page.get_text() for page in doc).strip()
-        used_ocr = not text
-        if used_ocr:
-            text = "\n".join(ocr_page(page, OCR_DPI) for page in doc)
-    return text, used_ocr, time.perf_counter() - start
-
-
-# ---------------------------------------------------------------- regex baseline
-def regex_extract(text: str) -> dict:
-    def first(pattern: str) -> str | None:
-        match = re.search(pattern, text, re.IGNORECASE)
-        return match.group(1).strip() if match else None
-
-    gstins = GSTIN.findall(text)
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    buyer = next((lines[i + 1] for i, line in enumerate(lines[:-1]) if line.lower().startswith("bill to")), None)
-    tax = [to_amount(v) for v in re.findall(rf"(?:CGST|SGST|IGST)\s*:\s*{AMOUNT}", text)]
-    return {
-        "vendor_name": lines[0] if lines else None,
-        "vendor_gstin": gstins[0] if gstins else None,
-        "buyer_name": buyer,
-        "buyer_gstin": gstins[1] if len(gstins) > 1 else None,
-        "invoice_number": first(r"(?:Invoice No|Inv\. No\.|Bill #)\s*:\s*(\S+)"),
-        "invoice_date": first(r"(?:Invoice Date|Dated|Date)\s*:\s*([0-9A-Za-z/.\-]+)"),
-        "subtotal": first(rf"Sub Total\s*:\s*{AMOUNT}"),
-        "tax_total": round(sum(tax), 2) if tax else None,
-        "total": first(rf"Grand Total\s*:\s*(?:Rs\.?\s*)?{AMOUNT}"),
-    }
-
-
-# ---------------------------------------------------------------- LLM extraction
-def llm_extract(provider: OllamaProvider, model: str, text: str) -> tuple[dict | None, float]:
-    start = time.perf_counter()
-    reply = provider.generate(SYSTEM_PROMPT, [ChatMessage("user", text[:MAX_TEXT_CHARS])], model, max_tokens=400)
-    seconds = time.perf_counter() - start
-    match = re.search(r"\{.*\}", reply.text, re.DOTALL)
-    try:
-        data = json.loads(match.group(0)) if match else None
-    except json.JSONDecodeError:
-        data = None
-    return (data if isinstance(data, dict) else None), seconds
-
-
-def valid(field: str, value) -> bool:
-    if value in (None, ""):
-        return False
-    if field.endswith("gstin"):
-        return bool(GSTIN.fullmatch(str(value)))
-    if field in AMOUNT_FIELDS:
-        return to_amount(value) is not None
-    if field == "invoice_date":
-        return to_date(value) is not None
-    return True
-
-
-def hybrid(regex: dict, llm: dict | None) -> dict:
-    llm = llm or {}
-    out = {}
-    for field in FIELDS:
-        preferred, fallback = (llm.get(field), regex.get(field)) if field in NAME_FIELDS else (
-            regex.get(field), llm.get(field))
-        out[field] = preferred if valid(field, preferred) or not valid(field, fallback) else fallback
-    return out
+    pages = extract(path.read_bytes(), "application/pdf")
+    return "\n".join(p.text for p in pages), any(p.ocr for p in pages), time.perf_counter() - start
 
 
 # ---------------------------------------------------------------- scoring
-def to_amount(value) -> float | None:
-    try:
-        return round(float(re.sub(r"[^\d.\-]", "", str(value))), 2)
-    except ValueError:
-        return None
-
-
-def to_date(value) -> str | None:
-    for fmt in DATE_FORMATS:
-        try:
-            return datetime.strptime(str(value).strip(), fmt).replace(tzinfo=UTC).date().isoformat()
-        except ValueError:
-            continue
-    return None
-
-
 def matches(field: str, got, want) -> bool:
     if got in (None, ""):
         return False
     if field in AMOUNT_FIELDS:
-        amount = to_amount(got)
+        amount = parse_amount(got)
         return amount is not None and abs(amount - float(want)) <= AMOUNT_TOLERANCE
     if field == "invoice_date":
-        return to_date(got) == (want if isinstance(want, str) else date.isoformat(want))
+        return parse_date(got) == (want if isinstance(want, str) else date.isoformat(want))
     return re.sub(r"[^a-z0-9]", "", str(got).casefold()) == re.sub(r"[^a-z0-9]", "", str(want).casefold())
 
 
@@ -182,7 +90,7 @@ def main() -> None:
         ocr_seconds += seconds if used_ocr else 0
     print(f"text/OCR: {sum(t['scanned'] for t in truths)} scans took {ocr_seconds:.1f}s total")
 
-    rows = [{"regex": regex_extract(text)} for text in texts]
+    rows = [{"regex": extract_invoice(text)} for text in texts]
     report = {"invoices": len(truths), "results": {}}
     regex_accuracy = score(rows, truths, "regex")
     print_table("regex baseline (no LLM)", regex_accuracy, 0.0)
@@ -201,14 +109,16 @@ def main() -> None:
             llm_seconds, parse_failures = 0.0, 0
             for i, text in enumerate(texts, 1):
                 try:
-                    data, seconds = llm_extract(provider, model, text)
+                    started = time.perf_counter()
+                    data = llm_extract(provider, model, INVOICE, text)
+                    seconds = time.perf_counter() - started
                 except LLMError as exc:
                     print(f"  {model} invoice {i}: {exc}")
                     data, seconds = None, 0.0
                 llm_seconds += seconds
                 parse_failures += data is None
                 rows[i - 1]["llm"] = data
-                rows[i - 1]["hybrid"] = hybrid(rows[i - 1]["regex"], data)
+                rows[i - 1]["hybrid"] = merge(INVOICE, rows[i - 1]["regex"], data)
                 print(f"  {model}: {i}/{len(texts)}", end="\r", flush=True)
             per_doc = llm_seconds / len(texts)
             for strategy in ("llm", "hybrid"):
