@@ -51,4 +51,4 @@ async function forward(request: NextRequest, ctx: { params: Promise<{ path: stri
   return response;
 }
 
-export { forward as DELETE, forward as GET, forward as PATCH, forward as POST };
+export { forward as DELETE, forward as GET, forward as PATCH, forward as POST, forward as PUT };

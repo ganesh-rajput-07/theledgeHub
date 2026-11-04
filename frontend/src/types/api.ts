@@ -45,7 +45,23 @@ export interface DocumentItem {
   status: DocumentStatus;
   page_count: number | null;
   embedding_model: string | null;
+  origin: DocumentOrigin | null;
   created_at: string;
+}
+
+export interface DocumentOrigin {
+  operation: "photo" | "merge" | "split" | "extract_pages" | "rotate";
+  converted_from?: string;
+  sources?: { id: string; filename: string }[];
+  pages?: string;
+  degrees?: number;
+}
+
+export interface CreatedDocument {
+  document_id: string;
+  filename: string;
+  status: DocumentStatus;
+  message: string;
 }
 
 export interface DocumentStatusInfo {
@@ -159,4 +175,43 @@ export interface Extraction {
   error_message: string | null;
   reviewed_at: string | null;
   updated_at: string;
+}
+
+export type Severity = "error" | "warning";
+
+export interface BuiltinSetting {
+  enabled: boolean;
+  severity: Severity;
+  params: Record<string, number | string | null>;
+}
+
+export interface CustomRule {
+  id?: string;
+  enabled: boolean;
+  field: string;
+  operator: string;
+  value: string | null;
+  severity: Severity;
+  message: string;
+}
+
+export interface RuleConfig {
+  builtin: Record<string, BuiltinSetting>;
+  custom: CustomRule[];
+}
+
+export interface RuleEditor {
+  schema_key: string;
+  fields: { key: string; label: string; type: "text" | "date" | "amount" | "gstin" }[];
+  operators: Record<string, string[]>;
+  predefined: {
+    key: string;
+    label: string;
+    description: string;
+    params: { key: string; label: string; type: "number" | "gstin" | "date" | "text"; required: boolean }[];
+    default_enabled: boolean;
+    default_severity: Severity;
+  }[];
+  config: RuleConfig;
+  rechecked: number | null;
 }

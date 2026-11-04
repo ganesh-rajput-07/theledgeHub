@@ -10,6 +10,7 @@ import type {
   DocumentItem,
   Extraction,
   ExtractionSchema,
+  RuleEditor,
   Me,
   Member,
   Organization,
@@ -28,6 +29,7 @@ export const keys = {
   documents: (wsId: string) => ["workspaces", wsId, "documents"] as const,
   extractions: (wsId: string) => ["workspaces", wsId, "extractions"] as const,
   extractionSchemas: ["extraction-schemas"] as const,
+  extractionRules: (wsId: string) => ["workspaces", wsId, "extraction-rules"] as const,
   conversations: (wsId: string) => ["workspaces", wsId, "conversations"] as const,
   messages: (conversationId: string) => ["conversations", conversationId, "messages"] as const,
 };
@@ -98,4 +100,10 @@ export const useExtractionSchemas = () =>
     queryKey: keys.extractionSchemas,
     queryFn: () => api<ExtractionSchema[]>("extraction-schemas"),
     staleTime: Infinity,
+  });
+
+export const useExtractionRules = (wsId: string) =>
+  useQuery({
+    queryKey: keys.extractionRules(wsId),
+    queryFn: () => api<RuleEditor>(`workspaces/${wsId}/extraction-rules`),
   });

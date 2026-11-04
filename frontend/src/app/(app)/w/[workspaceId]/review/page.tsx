@@ -1,7 +1,8 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, ClipboardCheck, Download, Play, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardCheck, Download, ListChecks, Play, XCircle } from "lucide-react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 
@@ -173,6 +174,13 @@ export default function ReviewPage() {
               <Play className="size-4" />
               Extract {pending.length || ""} new
             </Button>
+            <Link
+              href={`/w/${workspaceId}/rules`}
+              className="inline-flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50"
+            >
+              <ListChecks className="size-4" />
+              Rules
+            </Link>
             <a
               href={`/api/backend/workspaces/${workspaceId}/extractions/export`}
               className="inline-flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50"

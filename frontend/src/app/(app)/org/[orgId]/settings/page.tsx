@@ -338,6 +338,10 @@ const ACTION_LABELS: Record<string, string> = {
   "member.remove": "Removed a member",
   "workspace.create": "Created workspace",
   "workspace.delete": "Deleted workspace",
+  "extraction.update": "Corrected extracted data on",
+  "extraction.approve": "Approved extracted data on",
+  "extraction.export": "Exported approved records",
+  "extraction_rules.update": "Changed validation rules for",
 };
 
 function Activity({ orgId }: { orgId: string }) {
@@ -349,7 +353,7 @@ function Activity({ orgId }: { orgId: string }) {
       ) : (
         <ul className="divide-y divide-slate-100 rounded-md text-sm ring-1 ring-slate-200">
           {entries?.map((e) => {
-            const name = (e.details.filename ?? e.details.label ?? e.details.name) as string | undefined;
+            const name = (e.details.filename ?? e.details.label ?? e.details.name ?? e.details.workspace) as string | undefined;
             return (
               <li key={e.id} className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-2.5">
                 <span>
@@ -357,6 +361,13 @@ function Activity({ orgId }: { orgId: string }) {
                   <span className="text-slate-600">{(ACTION_LABELS[e.action] ?? e.action).toLowerCase()}</span>
                   {name && <span className="text-slate-900"> “{name}”</span>}
                   {e.action === "provider.update" && e.details.key_rotated === true && <span className="text-slate-600"> (key rotated)</span>}
+                  {e.action === "extraction.update" && typeof e.details.changes === "object" && e.details.changes !== null && (
+                    <span className="block text-xs text-slate-500">
+                      {Object.entries(e.details.changes as Record<string, { from: unknown; to: unknown }>)
+                        .map(([field, c]) => `${field}: ${c.from ?? "—"} → ${c.to ?? "—"}`)
+                        .join(" · ")}
+                    </span>
+                  )}
                 </span>
                 <span className="text-xs text-slate-400">
                   {formatDate(e.created_at)}
