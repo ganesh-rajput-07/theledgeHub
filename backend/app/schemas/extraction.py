@@ -4,6 +4,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.extraction.rules import RuleConfig
+
 
 class FieldRead(BaseModel):
     key: str
@@ -56,3 +58,36 @@ class ExtractionRead(BaseModel):
     error_message: str | None
     reviewed_at: datetime | None
     updated_at: datetime
+
+
+class RuleParamRead(BaseModel):
+    key: str
+    label: str
+    type: str
+    required: bool
+
+
+class PredefinedRuleRead(BaseModel):
+    key: str
+    label: str
+    description: str
+    params: list[RuleParamRead]
+    default_enabled: bool
+    default_severity: str
+
+
+class RuleFieldRead(BaseModel):
+    key: str
+    label: str
+    type: str
+
+
+class RuleEditorRead(BaseModel):
+    """Everything the rules page needs: what can be configured, and what currently is."""
+
+    schema_key: str
+    fields: list[RuleFieldRead]
+    operators: dict[str, list[str]]
+    predefined: list[PredefinedRuleRead]
+    config: RuleConfig
+    rechecked: int | None = None

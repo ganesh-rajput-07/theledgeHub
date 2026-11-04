@@ -5,13 +5,18 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response, status
 from sqlalchemy import select
 
-from app.api.deps import ClientIP, CurrentUser, DbSession, DocumentDep, WorkspaceDep
+from app.api.deps import ClientIP, CurrentUser, DbSession, DocumentDep, WorkspaceDep, require_manager
 from app.extraction.export import to_xlsx
+from app.extraction.rules import CATALOG, OPERATORS_BY_TYPE, RuleConfig, RuleConfigError
 from app.models import Document, Extraction, ExtractionStatus, ProviderCredential
 from app.schemas.extraction import (
     ExtractionRead,
     ExtractionRequest,
     ExtractionUpdate,
+    PredefinedRuleRead,
+    RuleEditorRead,
+    RuleFieldRead,
+    RuleParamRead,
     SchemaRead,
 )
 from app.services import audit_service
@@ -69,12 +74,31 @@ def get_extraction(document: DocumentDep, db: DbSession):
 
 
 @router.patch("/documents/{document_id}/extraction", response_model=ExtractionRead)
-def correct_extraction(document: DocumentDep, update: ExtractionUpdate, db: DbSession):
+def correct_extraction(document: DocumentDep, update: ExtractionUpdate, user: CurrentUser, db: DbSession, ip: ClientIP):
     extraction = _existing(db, document)
+    before = dict(extraction.values)
     try:
         service.update_values(db, extraction, document, update.values)
     except service.ExtractionStateError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    # Who changed which figure is the part of the trail accountants and auditors care most about.
+    changes = {
+        key: {"from": before.get(key), "to": value}
+        for key, value in extraction.values.items()
+        if before.get(key) != value
+    }
+    if changes:
+        audit_service.record(
+            db,
+            "extraction.update",
+            user=user,
+            organization_id=service.organization_id(db, document),
+            target_type="document",
+            target_id=document.id,
+            ip=ip,
+            filename=document.filename,
+            changes=changes,
+        )
     return _read(extraction)
 
 
@@ -152,3 +176,74 @@ def export_extractions(
         media_type=XLSX,
         headers={"Content-Disposition": f'attachment; filename="{name}"', "Cache-Control": "private, no-store"},
     )
+
+
+# ---------------------------------------------------------------- validation rules (per workspace)
+
+
+def _schema_or_422(schema_key: str):
+    schema = service.get_schema(schema_key)
+    if schema is None:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Unknown document type '{schema_key}'")
+    return schema
+
+
+def _rule_editor(schema, config: RuleConfig, rechecked: int | None = None) -> RuleEditorRead:
+    return RuleEditorRead(
+        schema_key=schema.key,
+        fields=[RuleFieldRead(key=f.key, label=f.label, type=f.type) for f in schema.fields],
+        operators=OPERATORS_BY_TYPE,
+        predefined=[
+            PredefinedRuleRead(
+                key=rule.key,
+                label=rule.label,
+                description=rule.description,
+                params=[RuleParamRead(key=p.key, label=p.label, type=p.type, required=p.required) for p in rule.params],
+                default_enabled=rule.enabled,
+                default_severity=rule.severity,
+            )
+            for rule in CATALOG.get(schema.key, ())
+        ],
+        config=config,
+        rechecked=rechecked,
+    )
+
+
+@router.get("/workspaces/{workspace_id}/extraction-rules", response_model=RuleEditorRead)
+def get_rules(access: WorkspaceDep, db: DbSession, schema_key: str = "invoice"):
+    schema = _schema_or_422(schema_key)
+    return _rule_editor(schema, service.rule_config(db, access.workspace.id, schema.key))
+
+
+@router.put("/workspaces/{workspace_id}/extraction-rules", response_model=RuleEditorRead)
+def save_rules(
+    config: RuleConfig,
+    access: WorkspaceDep,
+    user: CurrentUser,
+    db: DbSession,
+    ip: ClientIP,
+    schema_key: str = "invoice",
+):
+    """Owners/admins only: rules decide what blocks approval. Re-checks invoices still awaiting review."""
+    require_manager(access.membership)
+    schema = _schema_or_422(schema_key)
+    try:
+        rechecked = service.save_rule_config(db, access.workspace, schema, config, user)
+    except RuleConfigError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    saved = service.rule_config(db, access.workspace.id, schema.key)
+    audit_service.record(
+        db,
+        "extraction_rules.update",
+        user=user,
+        organization_id=access.workspace.organization_id,
+        target_type="workspace",
+        target_id=access.workspace.id,
+        ip=ip,
+        workspace=access.workspace.name,
+        schema_key=schema.key,
+        enabled=sorted(key for key, setting in saved.builtin.items() if setting.enabled),
+        custom_rules=len(saved.custom),
+        rechecked=rechecked,
+    )
+    return _rule_editor(schema, saved, rechecked)

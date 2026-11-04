@@ -103,6 +103,9 @@ class Tenant:
     def patch(self, url, **kwargs):
         return self._call("PATCH", url, **kwargs)
 
+    def put(self, url, **kwargs):
+        return self._call("PUT", url, **kwargs)
+
     def delete(self, url, **kwargs):
         return self._call("DELETE", url, **kwargs)
 

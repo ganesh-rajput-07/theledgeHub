@@ -141,3 +141,19 @@ def test_deleting_the_document_removes_its_extraction(api):
     extract(api, doc_id)
     assert api.delete(f"/api/v1/documents/{doc_id}").status_code == 204
     assert api.get(f"/api/v1/workspaces/{api.workspace_id}/extractions").json() == []
+
+
+def test_corrections_are_audited_with_before_and_after(api):
+    pdf, _ = make_invoice_pdf(2)
+    doc_id = upload(api, pdf)
+    extract(api, doc_id)
+    original_number = api.get(f"/api/v1/documents/{doc_id}/extraction").json()["values"]["invoice_number"]
+
+    api.patch(f"/api/v1/documents/{doc_id}/extraction", json={"values": {"invoice_number": "INV-FIXED-1"}})
+    api.patch(f"/api/v1/documents/{doc_id}/extraction", json={"values": {"invoice_number": "INV-FIXED-1"}})  # no-op
+
+    entries = api.get(f"/api/v1/organizations/{api.org_id}/audit-logs", params={"action": "extraction.update"}).json()
+    assert len(entries) == 1  # an edit that changes nothing is not logged
+    entry = entries[0]
+    assert entry["actor_email"] == api.email and entry["target_id"] == doc_id
+    assert entry["details"]["changes"] == {"invoice_number": {"from": original_number, "to": "INV-FIXED-1"}}
