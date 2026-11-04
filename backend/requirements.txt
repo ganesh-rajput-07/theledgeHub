@@ -25,6 +25,7 @@ openpyxl==3.1.5
 filetype==1.2.0
 
 # OCR for scanned PDFs
+pillow==13.0.0  # photo uploads: EXIF orientation + conversion to PDF
 rapidocr==3.10.0
 onnxruntime==1.31.1
 
