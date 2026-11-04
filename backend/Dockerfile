@@ -13,8 +13,12 @@ COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --upgrade pip && pip install -r requirements.txt
 
-# Bake the embedding model into the image so containers start offline and identically every time.
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
+# Bake every local model the API loads at startup into the image, so containers start offline and identically
+# every time. Must match EMBEDDING_MODEL / RERANKER_MODEL: a different model at runtime can't be downloaded.
+ARG EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+ARG RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L6-v2
+RUN python -c "from sentence_transformers import CrossEncoder, SentenceTransformer; \
+SentenceTransformer('${EMBEDDING_MODEL}'); CrossEncoder('${RERANKER_MODEL}')"
 ENV HF_HUB_OFFLINE=1
 
 COPY alembic.ini .
@@ -25,8 +29,10 @@ RUN useradd --uid 10001 --create-home appuser \
 USER appuser
 
 EXPOSE 8001
-HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=5 \
+# Startup runs migrations and loads both models, which can take a while on a busy CPU.
+HEALTHCHECK --interval=15s --timeout=5s --start-period=120s --retries=5 \
     CMD python -c "import urllib.request,sys; sys.exit(urllib.request.urlopen('http://127.0.0.1:8001/health').status != 200)"
 
-# One worker: login rate limits and ingestion background tasks are in-process (see README > Scaling).
+# One worker: uploads (INGESTION_MODE=inline) and extractions run as background tasks inside this process.
+# Rate limits are shared through PostgreSQL, so more workers are possible with INGESTION_MODE=queue + app.worker.
 CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8001"]
