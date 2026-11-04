@@ -10,11 +10,20 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
 from app.extraction.extractor import extract_values
+from app.extraction.rules import RuleConfig, check_config, resolve
 from app.extraction.schema import SCHEMAS, DocumentSchema, Issue, clean_values, validate
 from app.ingestion.extractors import ExtractionError, extract
 from app.llm.base import LLMError
 from app.llm.factory import build_provider_for_credential
-from app.models import Document, Extraction, ExtractionStatus, ProviderCredential, User, Workspace
+from app.models import (
+    Document,
+    Extraction,
+    ExtractionRuleSet,
+    ExtractionStatus,
+    ProviderCredential,
+    User,
+    Workspace,
+)
 
 log = logging.getLogger("knowledgehub.extraction")
 STALE_AFTER = timedelta(minutes=10)  # a run "processing" longer than this lost its process and may be restarted
@@ -53,11 +62,60 @@ def start(db: Session, document: Document, schema_key: str) -> Extraction:
     return extraction
 
 
-def refresh_issues(db: Session, extraction: Extraction, schema: DocumentSchema, org_id: uuid.UUID) -> None:
-    """Re-run validation and the duplicate check; call after every change to `values`."""
-    issues = validate(schema, extraction.values)
+def rule_config(db: Session, workspace_id: uuid.UUID, schema_key: str) -> RuleConfig:
+    """The workspace's rules for this document type (defaults when it never changed them)."""
+    saved = db.scalar(
+        select(ExtractionRuleSet.config).where(
+            ExtractionRuleSet.workspace_id == workspace_id, ExtractionRuleSet.schema_key == schema_key
+        )
+    )
+    return resolve(schema_key, saved)
+
+
+def save_rule_config(db: Session, workspace: Workspace, schema: DocumentSchema, config: RuleConfig, user: User) -> int:
+    """Validate and store the rules, then re-check every extraction still awaiting review in the workspace
+    (approved ones keep the result they were approved with). Returns how many were re-checked."""
+    config = check_config(schema, config)
+    row = db.scalar(
+        select(ExtractionRuleSet).where(
+            ExtractionRuleSet.workspace_id == workspace.id, ExtractionRuleSet.schema_key == schema.key
+        )
+    )
+    if row is None:
+        row = ExtractionRuleSet(workspace_id=workspace.id, schema_key=schema.key)
+        db.add(row)
+    row.config, row.updated_by = config.model_dump(mode="json"), user.id
+    db.flush()
+    pending = db.scalars(
+        select(Extraction)
+        .join(Document, Document.id == Extraction.document_id)
+        .where(
+            Document.workspace_id == workspace.id,
+            Extraction.schema_key == schema.key,
+            Extraction.status == ExtractionStatus.NEEDS_REVIEW,
+        )
+    ).all()
+    for extraction in pending:
+        refresh_issues(db, extraction, schema, workspace.organization_id, config)
+    db.commit()
+    return len(pending)
+
+
+def refresh_issues(
+    db: Session,
+    extraction: Extraction,
+    schema: DocumentSchema,
+    org_id: uuid.UUID,
+    config: RuleConfig | None = None,
+) -> None:
+    """Re-run validation and the duplicate check with the workspace's rules; call after every change to `values`."""
+    if config is None:
+        document = db.get(Document, extraction.document_id)
+        config = rule_config(db, document.workspace_id, schema.key)
+    issues = validate(schema, extraction.values, config)
     extraction.duplicate_key = schema.duplicate_key(extraction.values)
-    if extraction.duplicate_key:
+    duplicate_rule = config.builtin.get("duplicate")
+    if extraction.duplicate_key and (duplicate_rule is None or duplicate_rule.enabled):
         twin = db.scalar(
             select(Document.filename)
             .select_from(Extraction)
@@ -72,7 +130,8 @@ def refresh_issues(db: Session, extraction: Extraction, schema: DocumentSchema, 
             .limit(1)
         )
         if twin:
-            issues.append(Issue("duplicate", f"Looks like a duplicate of {twin}", None))
+            severity = duplicate_rule.severity if duplicate_rule else "error"
+            issues.append(Issue("duplicate", f"Looks like a duplicate of {twin}", None, severity))
     extraction.issues = [asdict(issue) for issue in issues]
 
 

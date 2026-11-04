@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -45,3 +45,22 @@ class Extraction(Base):
     @property
     def filename(self) -> str:
         return self.document.filename
+
+
+class ExtractionRuleSet(Base):
+    """A workspace's validation rules for one document type: predefined rules switched on/off and tuned, plus
+    custom rules. Stored as validated JSON (app.extraction.rules.RuleConfig); no row means the defaults."""
+
+    __tablename__ = "extraction_rule_sets"
+    __table_args__ = (UniqueConstraint("workspace_id", "schema_key"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    schema_key: Mapped[str] = mapped_column(String(60), nullable=False)
+    config: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}", nullable=False)
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
