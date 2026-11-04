@@ -28,6 +28,13 @@ def to_xlsx(schema: DocumentSchema, rows: list[tuple[str, dict, date | None]]) -
                     pass
             record.append(value)
         sheet.append([*record, filename, approved])
+        # Values come from uploaded documents (and the filename from the uploader), so they are untrusted.
+        # openpyxl stores any string starting with "=" as a formula, which would let a crafted invoice put a
+        # live formula (e.g. a HYPERLINK that leaks neighbouring cells) into the accountant's workbook.
+        # Forcing the string type keeps every such value as plain text.
+        for cell in sheet[sheet.max_row]:
+            if isinstance(cell.value, str):
+                cell.data_type = "s"
     for index, spec in enumerate(schema.fields, 1):
         letter = get_column_letter(index)
         for cell in sheet[letter][1:]:
