@@ -1,0 +1,242 @@
+[
+  {
+    "file": "invoice_01.pdf",
+    "scanned": false,
+    "trap": null,
+    "vendor_name": "Jain Diamond Exports",
+    "vendor_gstin": "24LVDFQ9539B1ZT",
+    "buyer_name": "Bhavsar & Co. Chartered Accountants",
+    "buyer_gstin": "24ODKOO5615G1Z8",
+    "invoice_number": "SG-01597",
+    "invoice_date": "2026-08-20",
+    "subtotal": 138095.05,
+    "tax_total": 22647.17,
+    "total": 160742.22,
+    "lines": [
+      {
+        "description": "Polyester fabric 60GSM",
+        "hsn": 5407,
+        "qty": 150,
+        "price": 182.68,
+        "gst_rate": 18,
+        "amount": 27402.0
+      },
+      {
+        "description": "Reactive dye - blue",
+        "hsn": 3204,
+        "qty": 130,
+        "price": 568.16,
+        "gst_rate": 18,
+        "amount": 73860.8
+      },
+      {
+        "description": "LED panel light 15W",
+        "hsn": 9405,
+        "qty": 23,
+        "price": 1106.77,
+        "gst_rate": 12,
+        "amount": 25455.71
+      },
+      {
+        "description": "Corrugated box 5-ply",
+        "hsn": 4819,
+        "qty": 18,
+        "price": 632.03,
+        "gst_rate": 12,
+        "amount": 11376.54
+      }
+    ]
+  },
+  {
+    "file": "invoice_02.pdf",
+    "scanned": false,
+    "trap": null,
+    "vendor_name": "Desai Machine Tools LLP",
+    "vendor_gstin": "24RLIPL2762S1Z0",
+    "buyer_name": "Orbit Retail LLP",
+    "buyer_gstin": "27HMILP0513P1ZR",
+    "invoice_number": "SG-00643",
+    "invoice_date": "2026-08-06",
+    "subtotal": 25004.16,
+    "tax_total": 4500.75,
+    "total": 29504.91,
+    "lines": [
+      {
+        "description": "Annual maintenance charges",
+        "hsn": 9987,
+        "qty": 16,
+        "price": 1562.76,
+        "gst_rate": 18,
+        "amount": 25004.16
+      }
+    ]
+  },
+  {
+    "file": "invoice_03.pdf",
+    "scanned": true,
+    "trap": null,
+    "vendor_name": "Mehta Dyeing & Printing Mills",
+    "vendor_gstin": "24BTIPR4783O1ZT",
+    "buyer_name": "Orbit Retail LLP",
+    "buyer_gstin": "27JPMFH7394F1ZS",
+    "invoice_number": "SG-06581",
+    "invoice_date": "2026-09-18",
+    "subtotal": 420405.51,
+    "tax_total": 57789.86,
+    "total": 478195.37,
+    "lines": [
+      {
+        "description": "A4 copier paper 75GSM",
+        "hsn": 4802,
+        "qty": 149,
+        "price": 2000.35,
+        "gst_rate": 12,
+        "amount": 298052.15
+      },
+      {
+        "description": "Annual maintenance charges",
+        "hsn": 9987,
+        "qty": 18,
+        "price": 2106.32,
+        "gst_rate": 18,
+        "amount": 37913.76
+      },
+      {
+        "description": "CNC tool holder",
+        "hsn": 8466,
+        "qty": 70,
+        "price": 1206.28,
+        "gst_rate": 18,
+        "amount": 84439.6
+      }
+    ]
+  },
+  {
+    "file": "invoice_04.pdf",
+    "scanned": false,
+    "trap": "wrong_gst",
+    "vendor_name": "Desai Machine Tools LLP",
+    "vendor_gstin": "24YDEGG4520N1ZK",
+    "buyer_name": "Tapi Fabrics Pvt Ltd",
+    "buyer_gstin": "24NPIDW9674Y1ZH",
+    "invoice_number": "009164",
+    "invoice_date": "2026-07-07",
+    "subtotal": 286191.28,
+    "tax_total": 38074.71,
+    "total": 324265.99,
+    "lines": [
+      {
+        "description": "Freight - road transport",
+        "hsn": 9965,
+        "qty": 72,
+        "price": 1777.74,
+        "gst_rate": 5,
+        "amount": 127997.28
+      },
+      {
+        "description": "LED panel light 15W",
+        "hsn": 9405,
+        "qty": 92,
+        "price": 1719.5,
+        "gst_rate": 12,
+        "amount": 158194.0
+      }
+    ]
+  },
+  {
+    "file": "invoice_05.pdf",
+    "scanned": false,
+    "trap": "wrong_total",
+    "vendor_name": "Rao Logistics Services",
+    "vendor_gstin": "29ADCJA8612L1ZU",
+    "buyer_name": "Tapi Fabrics Pvt Ltd",
+    "buyer_gstin": "24PMCMZ4317X1ZT",
+    "invoice_number": "SG-07842",
+    "invoice_date": "2026-04-27",
+    "subtotal": 247416.46,
+    "tax_total": 33935.02,
+    "total": 281451.48,
+    "lines": [
+      {
+        "description": "Freight - road transport",
+        "hsn": 9965,
+        "qty": 103,
+        "price": 193.13,
+        "gst_rate": 5,
+        "amount": 19892.39
+      },
+      {
+        "description": "Reactive dye - blue",
+        "hsn": 3204,
+        "qty": 18,
+        "price": 2462.28,
+        "gst_rate": 18,
+        "amount": 44321.04
+      },
+      {
+        "description": "CNC tool holder",
+        "hsn": 8466,
+        "qty": 113,
+        "price": 439.27,
+        "gst_rate": 18,
+        "amount": 49637.51
+      },
+      {
+        "description": "A4 copier paper 75GSM",
+        "hsn": 4802,
+        "qty": 88,
+        "price": 1517.79,
+        "gst_rate": 12,
+        "amount": 133565.52
+      }
+    ]
+  },
+  {
+    "file": "invoice_06.pdf",
+    "scanned": true,
+    "trap": "duplicate_of_1",
+    "vendor_name": "Jain Diamond Exports",
+    "vendor_gstin": "24LVDFQ9539B1ZT",
+    "buyer_name": "Bhavsar & Co. Chartered Accountants",
+    "buyer_gstin": "24ODKOO5615G1Z8",
+    "invoice_number": "SG-01597",
+    "invoice_date": "2026-08-20",
+    "subtotal": 138095.05,
+    "tax_total": 22647.17,
+    "total": 160742.22,
+    "lines": [
+      {
+        "description": "Polyester fabric 60GSM",
+        "hsn": 5407,
+        "qty": 150,
+        "price": 182.68,
+        "gst_rate": 18,
+        "amount": 27402.0
+      },
+      {
+        "description": "Reactive dye - blue",
+        "hsn": 3204,
+        "qty": 130,
+        "price": 568.16,
+        "gst_rate": 18,
+        "amount": 73860.8
+      },
+      {
+        "description": "LED panel light 15W",
+        "hsn": 9405,
+        "qty": 23,
+        "price": 1106.77,
+        "gst_rate": 12,
+        "amount": 25455.71
+      },
+      {
+        "description": "Corrugated box 5-ply",
+        "hsn": 4819,
+        "qty": 18,
+        "price": 632.03,
+        "gst_rate": 12,
+        "amount": 11376.54
+      }
+    ]
+  }
+]
