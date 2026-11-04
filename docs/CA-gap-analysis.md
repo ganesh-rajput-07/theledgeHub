@@ -55,7 +55,8 @@ say: *"Theirs puts entries into Tally and does my 2B; yours gives me Excel."*
 
 ## 5. Discovery questions for CA meetings
 
-Ask these in every demo; record the answers below.
+The full guide (pain signals, hypotheses H1–H5, interview questions, discovery log) is in
+[CA-pain-discovery.md](CA-pain-discovery.md). Short version: ask these in every demo; record the answers below.
 
 1. How do you get purchase invoices into Tally today, and how long does it take per client per month?
 2. How do you do GSTR-2B reconciliation, and what's the most painful part?
