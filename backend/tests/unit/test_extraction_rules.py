@@ -7,9 +7,15 @@ from app.extraction.values import gstin_is_valid, parse_amount, parse_date
 from evaluation.invoices import gstin
 
 GOOD = {
-    "vendor_name": "Shree Ganesh Textiles", "vendor_gstin": "27AAPFU0939F1ZV", "buyer_name": "Tapi Fabrics",
-    "buyer_gstin": None, "invoice_number": "INV/26-27/0042", "invoice_date": "20-Aug-2026",
-    "subtotal": "1,00,000.00", "tax_total": "18,000.00", "total": "1,18,000.00",
+    "vendor_name": "Shree Ganesh Textiles",
+    "vendor_gstin": "27AAPFU0939F1ZV",
+    "buyer_name": "Tapi Fabrics",
+    "buyer_gstin": None,
+    "invoice_number": "INV/26-27/0042",
+    "invoice_date": "20-Aug-2026",
+    "subtotal": "1,00,000.00",
+    "tax_total": "18,000.00",
+    "total": "1,18,000.00",
 }
 
 
@@ -44,8 +50,11 @@ def test_parse_date_formats(text):
 
 def test_missing_and_invalid_fields():
     bad = {**GOOD, "invoice_number": "", "invoice_date": "sometime", "vendor_gstin": "27AAPFU0939F1ZW"}
-    assert codes(bad) == {("missing", "invoice_number"), ("invalid_date", "invoice_date"),
-                          ("invalid_gstin", "vendor_gstin")}
+    assert codes(bad) == {
+        ("missing", "invoice_number"),
+        ("invalid_date", "invoice_date"),
+        ("invalid_gstin", "vendor_gstin"),
+    }
 
 
 def test_optional_field_may_be_absent():
@@ -73,3 +82,29 @@ def test_duplicate_key_ignores_case_and_punctuation():
     other = {**GOOD, "vendor_gstin": "27aapfu0939f1zv", "invoice_number": "inv-26-27-0042"}
     assert INVOICE.duplicate_key(GOOD) == INVOICE.duplicate_key(other)
     assert INVOICE.duplicate_key({**GOOD, "invoice_number": None}) is None
+
+
+def _issues(values):
+    from app.extraction.schema import INVOICE, validate
+
+    return {(i.code, i.severity) for i in validate(INVOICE, {**GOOD, **values})}
+
+
+def test_rupee_round_off_is_a_warning_not_a_blocker():
+    # 10,169.49 + 1,830.51 = 12,000.00 exactly -> no issue; real invoices round e.g. 11,999.60 up to 12,000.00
+    issues = _issues({"subtotal": "10,169.20", "tax_total": "1,830.40", "total": "12,000.00"})
+    assert ("round_off", "warning") in issues
+    assert not any(severity == "error" for _, severity in issues)
+
+
+def test_round_off_needs_a_whole_rupee_total():
+    # 0.40 off but the total isn't rounded to the rupee: that's a misread number, not rounding
+    assert ("total_mismatch", "error") in _issues(
+        {"subtotal": "10,000.00", "tax_total": "1,800.00", "total": "11,800.40"}
+    )
+
+
+def test_more_than_a_rupee_is_never_round_off():
+    assert ("total_mismatch", "error") in _issues(
+        {"subtotal": "10,000.00", "tax_total": "1,800.00", "total": "11,802.00"}
+    )

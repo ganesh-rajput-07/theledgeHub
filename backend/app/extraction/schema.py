@@ -5,14 +5,17 @@ new pipeline code. Validation reports problems for a human reviewer; it never si
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
-from typing import Literal
+from dataclasses import dataclass, field, replace
+from datetime import date
+from typing import TYPE_CHECKING, Literal
 
 from app.extraction.invoice import extract_invoice
 from app.extraction.values import gstin_is_valid, normalize, parse_amount, parse_date
 
+if TYPE_CHECKING:
+    from app.extraction.rules import RuleConfig
+
 FieldType = Literal["text", "date", "amount", "gstin"]
-AMOUNT_TOLERANCE = 0.02  # tax shown as two rounded halves (CGST + SGST) can differ from the total by a paisa
 
 
 @dataclass(frozen=True)
@@ -32,15 +35,11 @@ class Issue:
     severity: Literal["error", "warning"] = "error"
 
 
-Rule = Callable[[dict], list[Issue]]
-
-
 @dataclass(frozen=True)
 class DocumentSchema:
     key: str
     name: str
     fields: tuple[Field, ...]
-    rules: tuple[Rule, ...] = field(default=())
     # Values that identify "the same document": equal key means probable duplicate.
     duplicate_key_fields: tuple[str, ...] = field(default=())
     # Optional rule-based reader tried before the LLM: text -> {field key: raw value or None}.
@@ -84,45 +83,38 @@ def _check_field(spec: Field, value) -> Issue | None:
     return None
 
 
-def validate(schema: DocumentSchema, values: dict) -> list[Issue]:
-    """Field-level checks first, then the schema's cross-field rules (skipped for fields already broken)."""
-    issues = [i for spec in schema.fields if (i := _check_field(spec, values.get(spec.key)))]
+def validate(
+    schema: DocumentSchema, values: dict, config: "RuleConfig | None" = None, today: date | None = None
+) -> list[Issue]:
+    """Field checks first, then the enabled predefined rules and custom rules of `config` (the workspace's
+    rules; defaults when None). Rules skip fields whose value is already broken."""
+    from app.extraction.rules import CATALOG, custom_problems, resolve
+
+    config = config or resolve(schema.key, None)
+    today = today or date.today()
+    gstin_setting = config.builtin.get("gstin_checksum")
+    issues = []
+    for spec in schema.fields:
+        issue = _check_field(spec, values.get(spec.key))
+        if issue is not None and issue.code == "invalid_gstin" and gstin_setting is not None:
+            if not gstin_setting.enabled:
+                continue
+            issue = replace(issue, severity=gstin_setting.severity)
+        if issue is not None:
+            issues.append(issue)
+
     broken = {i.field for i in issues}
-    for rule in schema.rules:
-        issues.extend(i for i in rule({k: v for k, v in values.items() if k not in broken}) if i)
+    usable = {k: v for k, v in values.items() if k not in broken}
+    for rule in CATALOG.get(schema.key, ()):
+        setting = config.builtin.get(rule.key)
+        if rule.check is None or setting is None or not setting.enabled:
+            continue
+        issues.extend(
+            Issue(p.code, p.message, p.field, p.severity or setting.severity)
+            for p in rule.check(usable, setting.params, today)
+        )
+    issues.extend(Issue(p.code, p.message, p.field, p.severity) for p in custom_problems(schema, config, usable))
     return issues
-
-
-def _total_matches_parts(values: dict) -> list[Issue]:
-    subtotal, tax, total = (parse_amount(values.get(k)) for k in ("subtotal", "tax_total", "total"))
-    if None in (subtotal, tax, total):
-        return []
-    if abs(subtotal + tax - total) > AMOUNT_TOLERANCE:
-        return [
-            Issue(
-                "total_mismatch",
-                f"Subtotal {subtotal:.2f} + tax {tax:.2f} is {subtotal + tax:.2f}, but the total says {total:.2f}",
-                "total",
-            )
-        ]
-    return []
-
-
-def _tax_is_plausible(values: dict) -> list[Issue]:
-    """GST slabs are 0-28%; anything above is a misread number or a wrong tax line."""
-    subtotal, tax = parse_amount(values.get("subtotal")), parse_amount(values.get("tax_total"))
-    if not subtotal or tax is None:
-        return []
-    if tax < 0 or tax > subtotal * 0.28 + AMOUNT_TOLERANCE:
-        return [
-            Issue(
-                "tax_implausible",
-                f"Tax {tax:.2f} is {tax / subtotal:.0%} of the subtotal (Indian GST is at most 28%)",
-                "tax_total",
-                "warning",
-            )
-        ]
-    return []
 
 
 INVOICE = DocumentSchema(
@@ -139,7 +131,6 @@ INVOICE = DocumentSchema(
         Field("tax_total", "Tax total", "amount", hint="all GST combined (CGST+SGST or IGST)"),
         Field("total", "Total", "amount", hint="the grand total payable"),
     ),
-    rules=(_total_matches_parts, _tax_is_plausible),
     duplicate_key_fields=("vendor_gstin", "invoice_number"),
     heuristic=extract_invoice,
 )
