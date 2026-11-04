@@ -70,3 +70,42 @@ def test_values_are_normalised():
     values = extract_values(INVOICE, "no structure here", llm, "m")
     assert values["vendor_gstin"] == "29AABCU9603R1ZM"
     assert values["subtotal"] == 1000.0
+
+
+REAL_WORLD_LAYOUT = """TAX INVOICE
+(ORIGINAL FOR RECIPIENT)
+Shree Krishna Textiles Pvt Ltd
+Ring Road, Surat 395002
+GSTIN: 24AAACS1234A1Z1
+Invoice No: SKT/2026/0441
+Invoice Date: 12/10/2026
+Bill To
+Patel Fabrics
+Taxable Value: 10,169.20
+CGST @ 9%: 915.20
+SGST (9%) on 10,169.20 = 915.20
+Round off: 0.40
+Amount Payable: Rs. 12,000.00
+"""
+
+
+def test_rules_skip_document_titles_for_the_vendor_name():
+    from app.extraction.invoice import extract_invoice
+
+    assert extract_invoice(REAL_WORLD_LAYOUT)["vendor_name"] == "Shree Krishna Textiles Pvt Ltd"
+
+
+def test_rules_read_common_tax_and_total_layouts():
+    from app.extraction.invoice import extract_invoice
+
+    values = extract_invoice(REAL_WORLD_LAYOUT)
+    assert values["tax_total"] == 1830.40  # CGST @ 9%: ... and SGST (9%) on X = Y (last amount, not the base)
+    assert values["subtotal"] == "10,169.20"
+    assert values["total"] == "12,000.00"
+
+
+def test_tax_row_with_both_labels_and_repeated_lines_takes_the_totals():
+    from app.extraction.invoice import _tax_total
+
+    lines = ["CGST 9% 450.00", "CGST 9% 450.00", "Total CGST 900.00  Total SGST 900.00"]
+    assert _tax_total(lines) == 1800.00
