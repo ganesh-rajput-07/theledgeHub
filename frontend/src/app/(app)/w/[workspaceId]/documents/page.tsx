@@ -1,17 +1,19 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, FileText, RotateCw, ScanText, Trash2, Upload } from "lucide-react";
+import { Combine, ExternalLink, FileText, Files, RotateCw, ScanText, Trash2, Upload } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useRef, useState, type DragEvent } from "react";
 
+import { MergeDialog, PageToolsDialog, describeOrigin } from "@/components/page-tools";
 import { Badge, Button, Card, EmptyState, ErrorText, PageHeader, Spinner } from "@/components/ui";
 import { api, fileUrl } from "@/lib/api";
 import { cn, formatBytes, formatDate } from "@/lib/format";
 import { keys, useDocuments } from "@/lib/queries";
 import type { DocumentItem, DocumentStatusInfo } from "@/types/api";
 
-const ACCEPT = ".pdf,.docx,.txt,.md";
+const ACCEPT = ".pdf,.jpg,.jpeg,.png,.docx,.txt,.md";
+const PDF = "application/pdf";
 
 const statusBadge: Record<DocumentItem["status"], { color: "gray" | "yellow" | "green" | "red"; label: string }> = {
   pending: { color: "gray", label: "Queued" },
@@ -42,6 +44,10 @@ export default function DocumentsPage() {
   const { data: documents, isLoading, error } = useDocuments(workspaceId);
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [merging, setMerging] = useState(false);
+  const [pagesOf, setPagesOf] = useState<DocumentItem | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const refresh = () => queryClient.invalidateQueries({ queryKey: keys.documents(workspaceId) });
 
   const upload = useMutation({
@@ -70,6 +76,16 @@ export default function DocumentsPage() {
     onSettled: refresh,
   });
 
+  const pdfs = documents?.filter((d) => d.mime_type === PDF) ?? [];
+  const toggle = (id: string) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  const finished = (message: string) => {
+    setMerging(false);
+    setPagesOf(null);
+    setSelected([]);
+    setNotice(message);
+    refresh();
+  };
+
   function onDrop(event: DragEvent) {
     event.preventDefault();
     setDragging(false);
@@ -80,12 +96,18 @@ export default function DocumentsPage() {
     <>
       <PageHeader
         title="Documents"
-        description="PDF, DOCX, TXT and Markdown. Scanned PDFs are read with OCR."
+        description="PDFs, photos (JPG/PNG), DOCX, TXT and Markdown. Scans and photos are read with OCR."
         actions={
-          <Button onClick={() => inputRef.current?.click()} loading={upload.isPending}>
-            <Upload className="size-4" />
-            Upload
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" disabled={selected.length < 2} onClick={() => setMerging(true)}>
+              <Combine className="size-4" />
+              Merge{selected.length >= 2 ? ` ${selected.length}` : ""} selected
+            </Button>
+            <Button onClick={() => inputRef.current?.click()} loading={upload.isPending}>
+              <Upload className="size-4" />
+              Upload
+            </Button>
+          </div>
         }
       />
       <input
@@ -118,8 +140,13 @@ export default function DocumentsPage() {
           </button>
           . Max 25 MB each.
         </div>
-        {upload.error && <pre className="whitespace-pre-wrap"><ErrorText error={upload.error} /></pre>}
+        {upload.error && (
+          <pre className="whitespace-pre-wrap">
+            <ErrorText error={upload.error} />
+          </pre>
+        )}
         <ErrorText error={error ?? reprocess.error ?? remove.error} />
+        {notice && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</p>}
 
         <Card className="overflow-hidden">
           {isLoading ? (
@@ -132,6 +159,15 @@ export default function DocumentsPage() {
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
+                  <th className="w-10 py-3 pl-5">
+                    <input
+                      type="checkbox"
+                      className="size-4 rounded border-slate-300"
+                      aria-label="Select all PDFs"
+                      checked={pdfs.length > 0 && selected.length === pdfs.length}
+                      onChange={(e) => setSelected(e.target.checked ? pdfs.map((d) => d.id) : [])}
+                    />
+                  </th>
                   <th className="px-5 py-3 font-medium">Name</th>
                   <th className="px-5 py-3 font-medium">Status</th>
                   <th className="px-5 py-3 font-medium">Pages</th>
@@ -143,11 +179,25 @@ export default function DocumentsPage() {
               <tbody className="divide-y divide-slate-100">
                 {documents.map((doc) => (
                   <tr key={doc.id} className="align-top">
+                    <td className="py-3 pl-5">
+                      {doc.mime_type === PDF && (
+                        <input
+                          type="checkbox"
+                          className="size-4 rounded border-slate-300"
+                          aria-label={`Select ${doc.filename}`}
+                          checked={selected.includes(doc.id)}
+                          onChange={() => toggle(doc.id)}
+                        />
+                      )}
+                    </td>
                     <td className="max-w-xs px-5 py-3">
                       <div className="flex items-center gap-2">
                         <FileText className="size-4 shrink-0 text-slate-400" />
                         <span className="truncate font-medium">{doc.filename}</span>
                       </div>
+                      {describeOrigin(doc.origin) && (
+                        <p className="mt-0.5 truncate pl-6 text-xs text-slate-400">{describeOrigin(doc.origin)}</p>
+                      )}
                     </td>
                     <td className="px-5 py-3">
                       <Badge color={statusBadge[doc.status].color}>{statusBadge[doc.status].label}</Badge>
@@ -158,7 +208,22 @@ export default function DocumentsPage() {
                     <td className="px-5 py-3 text-slate-600">{formatDate(doc.created_at)}</td>
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-1">
-                        <a href={fileUrl(doc.id)} target="_blank" rel="noreferrer" title="Open file" className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100">
+                        {doc.mime_type === PDF && (
+                          <button
+                            title="Pages: keep, split or rotate"
+                            onClick={() => setPagesOf(doc)}
+                            className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100"
+                          >
+                            <Files className="size-4" />
+                          </button>
+                        )}
+                        <a
+                          href={fileUrl(doc.id)}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Open file"
+                          className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100"
+                        >
                           <ExternalLink className="size-4" />
                         </a>
                         <button
@@ -171,7 +236,9 @@ export default function DocumentsPage() {
                         </button>
                         <button
                           title="Delete"
-                          onClick={() => confirm(`Delete “${doc.filename}” and its indexed data?`) && remove.mutate(doc.id)}
+                          onClick={() =>
+                            confirm(`Delete “${doc.filename}” and its indexed data?`) && remove.mutate(doc.id)
+                          }
                           className="rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600"
                         >
                           <Trash2 className="size-4" />
@@ -188,6 +255,15 @@ export default function DocumentsPage() {
           <ScanText className="size-3.5" /> Text is extracted page by page so every answer can cite its exact page.
         </p>
       </div>
+      {merging && (
+        <MergeDialog
+          workspaceId={workspaceId}
+          documents={selected.map((id) => documents!.find((d) => d.id === id)!).filter(Boolean)}
+          onClose={() => setMerging(false)}
+          onDone={finished}
+        />
+      )}
+      {pagesOf && <PageToolsDialog document={pagesOf} onClose={() => setPagesOf(null)} onDone={finished} />}
     </>
   );
 }
