@@ -7,6 +7,7 @@ from typing import BinaryIO
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.documents.pdf_tools import IMAGE_TYPES, PdfToolError, image_to_pdf
 from app.models import Document
 
 PDF_MIME = "application/pdf"
@@ -35,6 +36,7 @@ class ValidatedFile:
     extension: str
     mime_type: str
     data: bytes
+    origin: dict | None = None  # where the stored file came from, when it isn't the upload itself
 
 
 def _read_limited(stream: BinaryIO, max_bytes: int) -> bytes:
@@ -50,6 +52,10 @@ def _matches_signature(data: bytes, extension: str) -> bool:
     """Trust file contents, not the client's filename or Content-Type."""
     if extension == ".pdf":
         return data.startswith(b"%PDF-")
+    if extension in (".jpg", ".jpeg"):
+        return data.startswith(b"\xff\xd8\xff")
+    if extension == ".png":
+        return data.startswith(b"\x89PNG\r\n\x1a\n")
     if extension == ".docx":
         # DOCX is a ZIP container; macro-enabled .docm is rejected by its extension.
         return data.startswith(b"PK\x03\x04") and b"word/" in data
@@ -63,8 +69,8 @@ def _matches_signature(data: bytes, extension: str) -> bool:
 def validate_upload(filename: str | None, stream: BinaryIO) -> ValidatedFile:
     safe_name = Path(filename or "").name.strip()[:255]
     extension = Path(safe_name).suffix.lower()
-    if not safe_name or extension not in ALLOWED_TYPES:
-        allowed = ", ".join(sorted(ALLOWED_TYPES))
+    if not safe_name or (extension not in ALLOWED_TYPES and extension not in IMAGE_TYPES):
+        allowed = ", ".join(sorted({*ALLOWED_TYPES, *IMAGE_TYPES}))
         raise UploadError(f"Unsupported file type. Allowed: {allowed}", 415)
 
     data = _read_limited(stream, get_settings().max_upload_mb * 1024 * 1024)
@@ -72,6 +78,14 @@ def validate_upload(filename: str | None, stream: BinaryIO) -> ValidatedFile:
         raise UploadError("File is empty", 400)
     if not _matches_signature(data, extension):
         raise UploadError(f"File content does not match its {extension} extension", 415)
+    if extension in IMAGE_TYPES:
+        # Photos of invoices (e.g. from WhatsApp) become upright one-page PDFs, so every tool and OCR applies.
+        try:
+            pdf = image_to_pdf(data)
+        except PdfToolError as exc:
+            raise UploadError(str(exc), 415) from exc
+        name = f"{Path(safe_name).stem[:250]}.pdf"
+        return ValidatedFile(name, ".pdf", PDF_MIME, pdf, {"operation": "photo", "converted_from": safe_name})
     return ValidatedFile(safe_name, extension, ALLOWED_TYPES[extension], data)
 
 
@@ -94,6 +108,7 @@ def create_document(
         mime_type=file.mime_type,
         file_size=len(file.data),
         checksum=hashlib.sha256(file.data).hexdigest(),
+        origin=file.origin,
     )
     db.add(document)
     try:

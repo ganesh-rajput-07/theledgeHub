@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import StrEnum
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -31,6 +31,9 @@ class Document(Base):
     checksum: Mapped[str | None] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(30), default=DocumentStatus.PENDING, nullable=False)
     page_count: Mapped[int | None] = mapped_column(Integer)
+    # How the file came to be when it isn't a plain upload: a converted photo, or the result of merge / split /
+    # extract-pages / rotate on other documents ({"operation": ..., "sources": [...]}). Originals are never edited.
+    origin: Mapped[dict | None] = mapped_column(JSONB)
     # Which model produced this document's vectors, so a model change can find what to re-embed.
     embedding_model: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
