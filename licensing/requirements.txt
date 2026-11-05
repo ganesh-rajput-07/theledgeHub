@@ -1,0 +1,11 @@
+# KnowledgeHub licence server (admin panel now; customer website and app login API next)
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+python-multipart==0.0.32
+pydantic[email]==2.14.2
+pydantic-settings==2.16.2
+sqlalchemy==2.1.6
+psycopg[binary,pool]==3.3.6
+alembic==1.20.1
+jinja2==3.1.6
+pwdlib[argon2]==0.3.1
