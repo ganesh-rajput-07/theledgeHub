@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { LicenceBanner } from "@/components/licence-banner";
 import { authRequest, api } from "@/lib/api";
 import { cn } from "@/lib/format";
 import { useMe, useOrganizations, useWorkspace, useWorkspaces } from "@/lib/queries";
@@ -153,7 +154,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </aside>
-      <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
+      <main className="min-w-0 flex-1 overflow-y-auto">
+        <LicenceBanner />
+        {children}
+      </main>
     </div>
   );
 }

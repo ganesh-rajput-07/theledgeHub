@@ -27,6 +27,11 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
     headers: json !== undefined ? { "Content-Type": "application/json", ...rest.headers } : rest.headers,
     body: json !== undefined ? JSON.stringify(json) : rest.body,
   });
+  if (response.status === 402 && typeof window !== "undefined") {
+    // Installed app: the licence session ran out. Sign in online again.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.href = `/login?licence=ended&next=${encodeURIComponent(window.location.pathname)}`;
+  }
   if (response.status === 401 && typeof window !== "undefined") {
     // Session expired: full reload to the login page so no previous user's cached data survives.
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination

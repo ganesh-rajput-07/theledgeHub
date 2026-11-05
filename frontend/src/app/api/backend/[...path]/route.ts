@@ -47,7 +47,7 @@ async function forward(request: NextRequest, ctx: { params: Promise<{ path: stri
   const body = upstream.status === 204 ? null : upstream.body;
   const response = new NextResponse(body, { status: upstream.status, headers: responseHeaders });
   if (refreshed) setSessionCookies(response, refreshed);
-  if (upstream.status === 401) clearSessionCookies(response);
+  if (upstream.status === 401 || upstream.status === 402) clearSessionCookies(response);
   return response;
 }
 
