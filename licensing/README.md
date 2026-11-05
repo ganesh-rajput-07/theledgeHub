@@ -1,8 +1,14 @@
 # KnowledgeHub licence server
 
-The online side of licensing: **admin panel** today (plans and prices, firms, payments, trials, computers, settings,
-activity log). The customer website and the desktop-app login API come next. See
-[`docs/licensing-plan.md`](../docs/licensing-plan.md).
+The online side of licensing, one FastAPI service:
+
+| Part | URL | For |
+| --- | --- | --- |
+| Customer website | `/` | Pricing, register, pay instructions, "I have paid", download, computers, team, password |
+| Admin panel | `/admin` | You: plans and prices, firms, payments, trials, computers, logins, settings, activity log |
+| App login API | `/api/app/v1/...` | The desktop app: login at every start → signed 24-hour lease |
+
+Design: [`docs/licensing-plan.md`](../docs/licensing-plan.md).
 
 ## Run it locally
 
@@ -13,10 +19,26 @@ cp .env.example .env                       # uses the dev Postgres on :5433, dat
 docker exec knowledgehub-db psql -U knowledgehub -c "CREATE DATABASE licensing"   # once
 .venv/bin/alembic upgrade head
 .venv/bin/python -m app.cli create-admin you@example.com "Your Name"            # asks for a password
+.venv/bin/python -m app.cli generate-keys                                       # once: lease signing key
 .venv/bin/uvicorn app.main:app --port 8002
 ```
 
-Open http://localhost:8002 and sign in. The same `create-admin` command resets a forgotten password.
+Website: http://localhost:8002 · Admin: http://localhost:8002/admin. The same `create-admin` command resets a
+forgotten admin password.
+
+**The signing key (`keys/lease_private.pem`) is the most important secret you have.** Anyone with it can create
+licences. Never commit it (it's in `.gitignore`), back it up somewhere safe, and keep the printed public key: it
+goes into the desktop app. Replacing the key logs out every installed app.
+
+## How a customer gets going
+
+1. Registers on `/register` (chooses a plan) → firm is **Pending payment**; their account page shows the amount
+   incl. GST, your UPI/bank details and their `KH-` reference.
+2. Pays, then clicks **I have paid** with the UTR → it appears on your admin dashboard under *Customers say they've
+   paid*.
+3. You check the UTR in your bank app → **Check & activate** (form is pre-filled) → **Record payment**.
+4. Their account shows **Download for Windows** (link set in Admin → Settings → Desktop app).
+5. They install and log in with the same email and password; each new computer takes a seat.
 
 ## Daily use
 
@@ -33,6 +55,42 @@ Open http://localhost:8002 and sign in. The same `create-admin` command resets a
 | UPI ID, bank details, GST %, grace days, login validity | **Settings** |
 | Who changed what | **Activity log** (every sign-in, price change, payment, block, correction) |
 
+## App login API (contract for the desktop app)
+
+`POST /api/app/v1/login`
+
+```json
+{"email": "...", "password": "...", "machine_id": "stable id of this installation (16-200 chars)",
+ "machine_name": "PARTNER-CABIN", "app_version": "1.0.0"}
+```
+
+Success `200`:
+
+```json
+{"lease": "<EdDSA JWT>", "expires_at": "2026-11-06T11:50:50+00:00", "valid_seconds": 86399,
+ "user": {"name": "...", "email": "...", "role": "owner"}, "firm": {"name": "...", "reference": "KH-48072"},
+ "subscription": {"plan": "Team", "ends_on": "2026-12-04", "status": "active", "days_left": 30, "trial": false},
+ "latest_version": "1.0.0"}
+```
+
+Refusals return `{"code": ..., "message": ...}` with a message ready to show the user:
+
+| HTTP | code | When |
+| --- | --- | --- |
+| 401 | `invalid_credentials` | Wrong email or password |
+| 423 | `locked` | 5 wrong passwords: locked for 15 minutes |
+| 402 | `no_subscription` / `expired` | Not paid yet / subscription (and grace) ended |
+| 403 | `firm_blocked` / `computer_blocked` / `computer_limit` | Blocked by you / all computer seats used |
+| 426 | `update_required` | App older than *Minimum version allowed* |
+| 429 | `rate_limited` | Too many attempts from one network |
+| 503 | `server_not_ready` | Signing key not created yet |
+
+The lease claims: `sub` (user id), `mid` (sha256 of the machine id), `firm`, `user`, `plan`, `computers`,
+`ends_on`, `trial`, `iat`, `exp`, `ttl`, `aud` = `knowledgehub-desktop`, `iss` = `knowledgehub-licensing`. The app
+must verify the signature with the public key, check `aud`, `iss` and `mid`, keep the lease **in memory only**,
+and count `ttl` down on its own uptime clock (not the wall clock). `app/lease.py: verify()` is the reference check.
+`GET /api/app/v1/public-key` returns the public key.
+
 ## Tests
 
 ```bash
@@ -44,5 +102,10 @@ Open http://localhost:8002 and sign in. The same `create-admin` command resets a
 
 - Serve behind HTTPS (e.g. Caddy) and keep `COOKIE_SECURE=true`. Run uvicorn with `--proxy-headers
   --forwarded-allow-ips=127.0.0.1` so the same-origin check sees `https`.
+- Set `PUBLIC_URL` to your real address (used in messages such as "Renew at …").
 - Use a strong, unique admin password; 5 wrong attempts lock the account for 15 minutes.
+- Rate limits for sign-ups and app logins are kept in memory, so run a single worker (or move them to Redis
+  before scaling out).
+- Password reset by email isn't built yet: customers contact you, and you set a new password in the firm's
+  *Logins* panel (this also unlocks a locked account).
 - Back up the database daily: it is your record of who paid.
