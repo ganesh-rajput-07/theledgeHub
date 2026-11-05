@@ -81,6 +81,7 @@ class Firm(Base):
     notes: Mapped[str] = mapped_column(Text, default="")
     blocked: Mapped[bool] = mapped_column(Boolean, default=False)
     blocked_reason: Mapped[str] = mapped_column(String(255), default="")
+    requested_plan_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("plans.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = _created()
 
     subscription: Mapped["Subscription | None"] = relationship(back_populates="firm", uselist=False, lazy="joined")
@@ -167,3 +168,56 @@ class AuditEvent(Base):
 
     admin: Mapped[AdminUser | None] = relationship(lazy="joined")
     firm: Mapped[Firm | None] = relationship(lazy="joined")
+
+
+class CustomerUser(Base):
+    """A person at a CA firm: signs in on the website and in the desktop app."""
+
+    __tablename__ = "customer_users"
+
+    id: Mapped[uuid.UUID] = _id()
+    firm_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("firms.id", ondelete="CASCADE"), index=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True)
+    name: Mapped[str] = mapped_column(String(120))
+    password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(20), default="member")  # owner | admin | member
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    failed_logins: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = _created()
+
+    firm: Mapped[Firm] = relationship(lazy="joined")
+
+
+class CustomerSession(Base):
+    __tablename__ = "customer_sessions"
+
+    id: Mapped[uuid.UUID] = _id()
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("customer_users.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    csrf_token: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = _created()
+
+    user: Mapped[CustomerUser] = relationship(lazy="joined")
+
+
+class PaymentClaim(Base):
+    """'I have paid': submitted by the customer, confirmed (as a Payment) or dismissed by the admin."""
+
+    __tablename__ = "payment_claims"
+
+    id: Mapped[uuid.UUID] = _id()
+    firm_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("firms.id", ondelete="CASCADE"), index=True)
+    plan_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("plans.id", ondelete="SET NULL"))
+    amount_paise: Mapped[int] = mapped_column(Integer)
+    method: Mapped[str] = mapped_column(String(20))
+    utr: Mapped[str] = mapped_column(String(60))
+    paid_on: Mapped[date] = mapped_column(Date)
+    note: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(20), default="open")  # open | confirmed | dismissed
+    created_at: Mapped[datetime] = _created()
+
+    firm: Mapped[Firm] = relationship(lazy="joined")
+    plan: Mapped[Plan | None] = relationship(lazy="joined")
