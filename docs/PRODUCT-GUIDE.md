@@ -169,6 +169,9 @@ cd backend && .venv/bin/python -m pytest          # 237 tests incl. tenant isola
 | `demo/KnowledgeHub-AI-Overview.pdf` / `.docx` | Client leave-behind: overview, checks, data security, pilot proposal |
 | `demo/KnowledgeHub-AI-Demo-Playbook.pdf` / `.docx` | Private script: setup, steps, what to say, what not to claim, objections, questions |
 | `demo/screenshots/focused/` | Close-up, highlighted screenshots used in the deck |
+| `demo/KnowledgeHub-Runbook-v2.pdf` / `.docx` | Internal runbook v2: whole system, running it, customer journey, admin tasks, pricing, licence rules, go-live checklist |
+| `demo/KnowledgeHub-Runbook-v2-Slides.pdf` / `.pptx` | The same runbook as 15 slides |
+| `demo/screenshots/runbook/` | Website and admin panel screenshots used in the runbook |
 | `demo/sample-files/` | 6 invoices + a WhatsApp photo + an annual report (see below) |
 | `demo/screenshots/` | Current screenshots of every screen |
 
