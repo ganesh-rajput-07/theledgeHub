@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}{{ brand }}{% endblock %}</title><link rel="icon" href="data:,"><link rel="stylesheet" href="/static/site.css"></head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="logo" href="/">Knowledge<span>Hub</span> AI</a>
+  <nav>
+    <a href="/#pricing">Pricing</a>
+    {% if me %}<a href="/account">My account</a>
+      <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="linkbtn">Log out</button></form>
+    {% else %}<a href="/login">Log in</a><a class="btn small" href="/register">Get started</a>{% endif %}
+  </nav>
+</div></header>
+{% block body %}{% endblock %}
+<footer><div class="wrap">© {{ today.year }} {{ brand }}{% if support_email %} · <a href="mailto:{{ support_email }}">{{ support_email }}</a>{% endif %}{% if support_phone %} · {{ support_phone }}{% endif %}</div></footer>
+</body></html>

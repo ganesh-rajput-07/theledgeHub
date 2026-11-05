@@ -1,0 +1,29 @@
+{% extends "site/base.html" %}{% block title %}Register · {{ brand }}{% endblock %}
+{% block body %}
+<div class="wrap"><div class="narrow">
+  <h1>Create your account</h1><p class="muted">One account per firm. You'll pay by UPI or bank transfer next.</p>
+  {% if error %}<div class="msg err">{{ error }}</div>{% endif %}
+  <form method="post" class="card">
+    <div class="field"><label>Choose a plan</label><div class="choice">
+      {% for p, q in plans %}<label><input type="radio" name="plan" value="{{ p.code }}" {{ 'checked' if form.plan == p.code or (not form.plan and loop.first) }}>
+        {{ p.name }} <span class="small muted">{{ p.computers_included }} computer{{ 's' if p.computers_included != 1 }}</span>
+        <span class="p">{{ p.price_paise|rupees }}<span class="small muted"> + GST</span></span></label>{% endfor %}
+    </div></div>
+    <div class="field"><label>Firm name</label><input name="firm_name" value="{{ form.firm_name or '' }}" required placeholder="Shah &amp; Associates"></div>
+    <div class="field"><label>Your name</label><input name="name" value="{{ form.name or '' }}" required autocomplete="name"></div>
+    <div class="field"><label>Email <span class="hint">(you'll log in with this)</span></label><input name="email" type="email" value="{{ form.email or '' }}" required autocomplete="email"></div>
+    <div class="grid g2">
+      <div class="field"><label>Mobile</label><input name="mobile" value="{{ form.mobile or '' }}" required autocomplete="tel" placeholder="98250 12345"></div>
+      <div class="field"><label>City</label><input name="city" value="{{ form.city or '' }}" placeholder="Surat"></div>
+    </div>
+    <div class="field"><label>Firm GSTIN <span class="hint">(optional, for your invoice)</span></label><input name="gstin" value="{{ form.gstin or '' }}" maxlength="15"></div>
+    <div class="grid g2">
+      <div class="field"><label>Password <span class="hint">(12+ characters)</span></label><input name="password" type="password" required minlength="12" autocomplete="new-password"></div>
+      <div class="field"><label>Repeat password</label><input name="confirm_password" type="password" required minlength="12" autocomplete="new-password"></div>
+    </div>
+    <div class="field check"><input type="checkbox" id="terms" name="terms" {{ 'checked' if form.terms }}><label for="terms" class="small">I agree to the terms of service and privacy policy.</label></div>
+    <button class="btn wide big">Create account</button>
+  </form>
+  <p class="muted small">Already registered? <a href="/login">Log in</a></p>
+</div></div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "site/base.html" %}
+{% block body %}
+<div class="wrap account">
+  <aside class="subnav">
+    <div class="small muted">{{ me.firm.name }}</div><div class="small muted mono">{{ me.firm.reference }}</div><br>
+    <a href="/account" class="{{ 'on' if nav == 'account' }}">Subscription &amp; download</a>
+    <a href="/account/computers" class="{{ 'on' if nav == 'computers' }}">Computers</a>
+    <a href="/account/team" class="{{ 'on' if nav == 'team' }}">Team</a>
+    <a href="/account/password" class="{{ 'on' if nav == 'password' }}">Password</a>
+  </aside>
+  <main>
+    {% if flash %}<div class="msg ok">{{ flash }}</div>{% endif %}
+    {% if error %}<div class="msg err">{{ error }}</div>{% endif %}
+    {% block main %}{% endblock %}
+  </main>
+</div>
+{% endblock %}

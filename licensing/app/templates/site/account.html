@@ -1,0 +1,56 @@
+{% extends "site/_account.html" %}{% block title %}My account · {{ brand }}{% endblock %}
+{% block main %}
+<div class="head"><div><h1>Hello, {{ me.user.name.split(' ')[0] }}</h1><p class="muted">{{ firm.name }}</p></div>
+<span class="pill p-{{ status.code }}">{{ status.label }}{% if status.days_left is not none %} · {{ status.days_left }} day{{ '' if status.days_left == 1 else 's' }} left{% endif %}</span></div>
+
+{% if status.code == 'blocked' %}<div class="msg err">Your account is blocked. Please contact {{ support_email or 'support' }}.</div>{% endif %}
+{% if status.code == 'grace' %}<div class="msg warn">Your subscription ended on {{ sub.ends_on|d }}. Please renew within {{ status.days_left }} day(s) to keep using the app.</div>{% endif %}
+
+{% if status.can_use %}
+<div class="card"><h2>Download KnowledgeHub</h2>
+  {% if config.download_url %}
+  <p>Install it on each office computer, then log in with <b>{{ me.user.email }}</b> and your password.</p>
+  <a class="btn big" href="{{ config.download_url }}" rel="noopener">Download for Windows{% if config.latest_version %} (version {{ config.latest_version }}){% endif %}</a>
+  <p class="small muted">Internet is needed for a few seconds each time the app opens. Your documents stay on your computer.</p>
+  {% else %}<p class="muted">The installer will be available here soon. We'll let you know.</p>{% endif %}
+</div>
+{% endif %}
+
+<div class="card"><h2>Subscription</h2>
+  {% if sub %}<dl class="kv">
+    <dt>Plan</dt><dd>{{ sub.plan.name }}{% if sub.is_trial %} (trial){% endif %}</dd>
+    <dt>Computers</dt><dd>{{ computers|length }} of {{ sub.computers_allowed }} in use · <a href="/account/computers">manage</a></dd>
+    <dt>{{ 'Valid until' if status.code in ('active','trial') else 'Ended on' }}</dt><dd><b>{{ sub.ends_on|d }}</b></dd>
+    {% if not sub.is_trial %}<dt>Price</dt><dd>{{ sub.price_paise|rupees }} + GST per {{ {1:'month',3:'quarter',6:'half-year',12:'year'}[sub.billing_months] }}</dd>{% endif %}
+  </dl>{% else %}<p class="muted">Not active yet. Complete the payment below and we'll switch it on.</p>{% endif %}
+</div>
+
+{% if plan and price and status.code != 'blocked' and (status.code not in ('active',) or status.days_left <= 10) %}
+<div class="card"><h2>{{ 'Pay to activate' if not sub or sub.is_trial else 'Renew' }}</h2>
+  <div class="pay">
+    <div class="small muted">{{ plan.name }} · {{ price.total|rupees }} incl. GST ({{ price.subtotal|rupees }} + {{ price.gst|rupees }} GST){% if price.extra_computers %} · includes {{ price.extra_computers }} extra computer(s){% endif %}</div>
+    <div class="amount">{{ price.total|rupees }}</div>
+    <div>Payment reference: <b class="mono">{{ firm.reference }}</b> <span class="small muted">(write it in the UPI note / bank remarks)</span></div>
+  </div>
+  <div class="grid g2">
+    <div>{% if config.upi_id %}<b>UPI</b><br><span class="mono">{{ config.upi_id }}</span>{% endif %}</div>
+    <div>{% if config.bank_account_number %}<b>Bank transfer</b><br>{{ config.bank_account_name }}<br>A/c <span class="mono">{{ config.bank_account_number }}</span><br>IFSC <span class="mono">{{ config.bank_ifsc }}</span>{% if config.bank_name %} · {{ config.bank_name }}{% endif %}{% endif %}</div>
+  </div>
+  {% if not config.upi_id and not config.bank_account_number %}<p class="muted">Payment details will be shared by {{ support_email or 'our team' }}.</p>{% endif %}
+</div>
+
+<div class="card"><h2>Already paid? Tell us</h2>
+  {% if claims %}<div class="msg warn">We're checking {{ claims|length }} payment(s) you reported: {% for c in claims %}{{ c.amount_paise|rupees }} (UTR {{ c.utr }}){{ ', ' if not loop.last }}{% endfor %}. We'll activate your account once it's confirmed.</div>{% endif %}
+  <form method="post" action="/account/paid"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="grid g2">
+      <div class="field"><label>Amount paid (₹)</label><input name="amount" inputmode="decimal" value="{{ form.amount or ((price.total / 100)|round(2)) }}" required></div>
+      <div class="field"><label>Paid by</label><select name="method"><option value="upi" {{ 'selected' if form.method != 'bank' }}>UPI</option><option value="bank" {{ 'selected' if form.method == 'bank' }}>Bank transfer</option></select></div>
+      <div class="field"><label>UTR / transaction ID</label><input name="utr" value="{{ form.utr or '' }}" required placeholder="From your bank or UPI app"></div>
+      <div class="field"><label>Date paid</label><input name="paid_on" type="date" value="{{ form.paid_on or today.isoformat() }}" max="{{ today.isoformat() }}" required></div>
+    </div>
+    <div class="field"><label>Note <span class="hint">(optional)</span></label><input name="note" value="{{ form.note or '' }}"></div>
+    <button class="btn">I have paid</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

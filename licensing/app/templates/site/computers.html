@@ -1,0 +1,11 @@
+{% extends "site/_account.html" %}{% block title %}Computers · {{ brand }}{% endblock %}
+{% block main %}
+<div class="head"><div><h1>Computers</h1><p class="muted">{% if sub %}{{ computers|length }} of {{ sub.computers_allowed }} in use. {% endif %}A computer is added the first time someone logs in to the app on it.</p></div></div>
+<div class="card"><table>
+<tr><th>Computer</th><th>App version</th><th>Activated</th><th>Last login</th><th></th></tr>
+{% for c in computers %}<tr><td><b>{{ c.name or 'Unnamed computer' }}</b>{% if c.blocked %} <span class="pill p-blocked">Blocked</span>{% endif %}</td><td>{{ c.app_version }}</td><td>{{ c.first_seen|dt }}</td><td>{{ c.last_seen|dt }}</td>
+<td>{% if me.user.role in ('owner','admin') %}<form method="post" action="/account/computers/{{ c.id }}/remove"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn ghost small">Remove</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="5" class="empty">No computers yet. Install the app and log in.</td></tr>{% endfor %}
+</table></div>
+<p class="small muted">Removing a computer frees its place for another one. You can remove {{ removals_left }} more this month.</p>
+{% endblock %}

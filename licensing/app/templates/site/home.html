@@ -1,0 +1,59 @@
+{% extends "site/base.html" %}
+{% block title %}{{ brand }}: invoice checking for CA firms{% endblock %}
+{% block body %}
+<div class="hero"><div class="wrap">
+  <div class="kicker">For CA firms</div>
+  <h1>Client bills in.<br><em>Checked data out.</em></h1>
+  <p>KnowledgeHub reads your clients' purchase invoices, PDFs and WhatsApp photos, checks them against your rules, and gives your team one review screen. It runs on your own computer, so client documents never leave your office.</p>
+  <div class="row"><a class="btn big" href="/register">Get started</a><a class="btn ghost big" href="#pricing">See pricing</a></div>
+</div></div>
+
+<section><div class="wrap">
+  <h2>What it does</h2><p class="lead">Everything a CA office needs to turn a pile of bills into checked data.</p>
+  <div class="grid g3">
+    <div class="feature"><b>Reads every bill</b><p>PDFs, scans and WhatsApp photos. Vendor, GSTINs, invoice number, date and amounts, filled in automatically.</p></div>
+    <div class="feature"><b>Catches mistakes</b><p>Invalid GSTINs, totals that don't add up, duplicate bills, bills addressed to the wrong client.</p></div>
+    <div class="feature"><b>Your rules, per client</b><p>Switch checks on per client and add your own rules without code.</p></div>
+    <div class="feature"><b>Review and approve</b><p>Nothing goes out unapproved. Every correction is recorded: who, when, old and new value.</p></div>
+    <div class="feature"><b>PDF tools built in</b><p>Merge, split, keep pages and rotate, with no other software needed.</p></div>
+    <div class="feature"><b>Stays in your office</b><p>Installed on your computers. Only the login check uses the internet.</p></div>
+  </div>
+</div></section>
+
+<section id="pricing"><div class="wrap">
+  <h2>Simple monthly pricing</h2><p class="lead">Per firm, unlimited invoices. Prices exclude GST ({{ gst }}%).</p>
+  {% if plans %}<div class="grid g{{ [plans|length, 4]|min if plans|length > 1 else 2 }}">
+  {% for p, q in plans %}<div class="plan {{ 'featured' if loop.index == 2 }}">
+    <h3>{{ p.name }}</h3><div class="desc">{{ p.description }}</div>
+    <div class="price">{{ p.price_paise|rupees }} <small>/ {{ {1:'month',3:'quarter',6:'half-year',12:'year'}[p.billing_months] }}</small></div>
+    <div class="small muted">{{ q.total|rupees }} incl. GST</div>
+    <ul>
+      <li>{{ p.computers_included }} computer{{ 's' if p.computers_included != 1 }}</li>
+      {% if p.extra_computer_paise %}<li>Extra computers {{ p.extra_computer_paise|rupees }} each</li>{% endif %}
+      <li>{{ (p.max_users ~ ' team members') if p.max_users else 'Unlimited team members' }}</li>
+      <li>{{ (p.invoice_limit ~ ' invoices / month') if p.invoice_limit else 'Unlimited invoices' }}</li>
+      <li>All checks, rules and PDF tools</li>
+    </ul>
+    <a class="btn {{ '' if loop.index == 2 else 'ghost' }} wide" href="/register?plan={{ p.code }}">Choose {{ p.name }}</a>
+  </div>{% endfor %}</div>
+  {% else %}<p class="muted">Pricing will be published soon.</p>{% endif %}
+</div></section>
+
+<section><div class="wrap">
+  <h2>How to start</h2><p class="lead">Ready in an afternoon.</p>
+  <div class="grid g4 steps">
+    <div class="step"><b>Register</b><p class="muted small">Your firm, your email, your plan.</p></div>
+    <div class="step"><b>Pay by UPI or bank</b><p class="muted small">We activate your account once the payment is confirmed.</p></div>
+    <div class="step"><b>Download &amp; install</b><p class="muted small">A normal Windows installer, on each office computer.</p></div>
+    <div class="step"><b>Log in &amp; work</b><p class="muted small">Same email and password as this website.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap faq">
+  <h2>Questions</h2>
+  <details><summary>Do my client documents go to the internet?</summary><p>No. Documents, OCR and the database stay on your computer. Only the login (email, password, computer ID) is checked online.</p></details>
+  <details><summary>Do I need internet all the time?</summary><p>Only for a few seconds when you open the app. After that it works offline for up to 24 hours.</p></details>
+  <details><summary>How many computers can I use?</summary><p>Each plan includes a number of computers; you can add more. You can see and remove computers in your account.</p></details>
+  <details><summary>Is there a free trial?</summary><p>Contact us for a guided trial on your own invoices.</p></details>
+</div></section>
+{% endblock %}

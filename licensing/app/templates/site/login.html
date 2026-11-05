@@ -1,0 +1,13 @@
+{% extends "site/base.html" %}{% block title %}Log in · {{ brand }}{% endblock %}
+{% block body %}
+<div class="wrap"><div class="narrow">
+  <h1>Log in</h1><p class="muted">Same email and password as in the desktop app.</p>
+  {% if error %}<div class="msg err">{{ error }}</div>{% endif %}
+  <form method="post" class="card">
+    <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" value="{{ email or '' }}" required autofocus autocomplete="username"></div>
+    <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" required autocomplete="current-password"></div>
+    <button class="btn wide">Log in</button>
+  </form>
+  <p class="muted small">New here? <a href="/register">Create an account</a>. Forgot your password? Contact {{ support_email or 'support' }}.</p>
+</div></div>
+{% endblock %}

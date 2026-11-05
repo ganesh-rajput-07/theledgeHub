@@ -1,0 +1,21 @@
+{% extends "site/_account.html" %}{% block title %}Team · {{ brand }}{% endblock %}
+{% block main %}
+<div class="head"><div><h1>Team</h1><p class="muted">Everyone who logs in to the app needs their own account.</p></div></div>
+<div class="card"><table>
+<tr><th>Name</th><th>Email</th><th>Role</th><th>Last login</th><th></th></tr>
+{% for u in members %}<tr><td><b>{{ u.name }}</b>{% if not u.is_active %} <span class="pill p-expired">Switched off</span>{% endif %}</td><td>{{ u.email }}</td><td>{{ ROLES[u.role] }}</td><td>{{ u.last_login_at|dt }}</td>
+<td>{% if me.user.role in ('owner','admin') and u.role != 'owner' and u.id != me.user.id %}<form method="post" action="/account/team/{{ u.id }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="active" value="{{ '0' if u.is_active else '1' }}"><button class="btn ghost small">{{ 'Switch off' if u.is_active else 'Switch on' }}</button></form>{% endif %}</td></tr>
+{% endfor %}
+</table></div>
+{% if me.user.role in ('owner','admin') %}
+<div class="card"><h2>Add a person</h2>
+<form method="post" action="/account/team"><input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="grid g2">
+    <div class="field"><label>Name</label><input name="name" value="{{ form.name or '' }}" required></div>
+    <div class="field"><label>Email</label><input name="email" type="email" value="{{ form.email or '' }}" required></div>
+    <div class="field"><label>Role</label><select name="role"><option value="member">Member: uses the app</option><option value="admin" {{ 'selected' if form.role == 'admin' }}>Admin: also manages team and computers</option></select></div>
+    <div class="field"><label>First password <span class="hint">(12+ characters; share it with them)</span></label><input name="password" type="text" required minlength="12" autocomplete="off"></div>
+  </div>
+  <button class="btn">Add person</button>
+</form></div>{% endif %}
+{% endblock %}
