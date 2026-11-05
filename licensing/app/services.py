@@ -37,6 +37,9 @@ SETTING_DEFAULTS: dict[str, str] = {
     "trial_days": "14",
     "computer_changes_per_month": "2",
     "lease_hours": "24",
+    "download_url": "",
+    "latest_version": "",
+    "min_app_version": "",
 }
 INT_SETTINGS = {
     "grace_days": (0, 30),
@@ -69,6 +72,10 @@ def save_settings(db: Session, admin: AdminUser, form: dict[str, str], ip: str |
                     raise ValueError
             except (ArithmeticError, ValueError):
                 raise RuleError("GST % must be a number from 0 to 28.") from None
+        if key == "download_url" and value and not re.match(r"^https://[^\s]+$", value):
+            raise RuleError("Download link must start with https://")
+        if key in ("latest_version", "min_app_version") and value and not re.fullmatch(r"\d+(\.\d+){0,2}", value):
+            raise RuleError("Versions look like 1.0 or 1.2.3.")
         if key == "business_gstin" and value and not GSTIN_RE.match(value.upper()):
             raise RuleError("Your GSTIN doesn't look valid (15 characters, e.g. 24ABCDE1234F1Z5).")
         if value != current[key]:
