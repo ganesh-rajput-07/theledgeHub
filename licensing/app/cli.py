@@ -1,11 +1,18 @@
-"""Admin accounts from the command line:  python -m app.cli create-admin you@example.com "Your Name"."""
+"""Command line tools.
+
+python -m app.cli create-admin you@example.com "Your Name"   create an admin, or reset their password
+python -m app.cli generate-keys                              create the lease signing key (once)
+"""
 
 import argparse
 import getpass
 import sys
+from pathlib import Path
 
 from sqlalchemy import func, select
 
+from app import lease
+from app.config import get_settings
 from app.db import SessionLocal
 from app.models import AdminUser
 from app.security import MIN_PASSWORD_LENGTH, hash_password
@@ -29,7 +36,18 @@ def main() -> int:
     create = sub.add_parser("create-admin", help="create an admin, or reset an existing admin's password")
     create.add_argument("email")
     create.add_argument("name", nargs="?", default="Admin")
+    sub.add_parser("generate-keys", help="create the Ed25519 key that signs licence leases")
     args = parser.parse_args()
+
+    if args.command == "generate-keys":
+        path = Path(get_settings().lease_private_key_file)
+        if path.exists():
+            print(f"{path} already exists. Replacing it would log out every desktop app; refusing.")
+            return 1
+        public = lease.generate_keypair(path)
+        print(f"Private key written to {path} (keep it secret and backed up).\nPublic key for the desktop app:\n")
+        print(public)
+        return 0
 
     with SessionLocal() as db:
         admin = db.scalar(select(AdminUser).where(func.lower(AdminUser.email) == args.email.lower()))
