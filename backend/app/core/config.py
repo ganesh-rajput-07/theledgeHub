@@ -70,6 +70,14 @@ class Settings(BaseSettings):
     storage_dir: str = "storage"
     max_upload_mb: int = 25
 
+    # Licensing. "off" = no licence needed (development, the web/Docker version). "desktop" = the installed app:
+    # every start needs an online login at the licence server, which returns a signed, time-limited lease.
+    licence_mode: str = "off"
+    licence_server_url: str = "http://localhost:8002"
+    licence_public_key_file: str = "app/licensing/licence_public_key.pem"  # from the licence server's generate-keys
+    licence_timeout_seconds: float = 15.0
+    app_version: str = "0.1.0"
+
     @property
     def allow_mock_provider(self) -> bool:
         return self.app_env != "production"
