@@ -2,6 +2,8 @@
 
 import os
 import re
+import tempfile
+from pathlib import Path
 
 import psycopg
 import pytest
@@ -13,6 +15,9 @@ _main = make_url(Settings().database_url)
 _test = make_url(os.environ.get("TEST_DATABASE_URL") or _main.set(database=f"{_main.database}_test"))
 os.environ["DATABASE_URL"] = _test.render_as_string(hide_password=False)
 os.environ["COOKIE_SECURE"] = "false"  # TestClient talks plain http
+KEY_FILE = Path(tempfile.mkdtemp(prefix="kh-lease-")) / "lease_private.pem"
+os.environ["LEASE_PRIVATE_KEY_FILE"] = str(KEY_FILE)
+os.environ["PUBLIC_URL"] = "https://licence.example"
 get_settings.cache_clear()
 
 PASSWORD = "admin-password-123"
@@ -47,9 +52,12 @@ def clean(database):
         conn.execute(
             text(
                 "TRUNCATE admin_users, admin_sessions, plans, firms, subscriptions, payments, computers, "
-                "settings, audit_events CASCADE"
+                "settings, audit_events, customer_users, customer_sessions, payment_claims CASCADE"
             )
         )
+    from app.customers import limiter
+
+    limiter.reset()
     yield
 
 
@@ -78,10 +86,10 @@ class Browser:
     def __init__(self, client):
         self.client = client
         response = client.post(
-            "/login", data={"email": "owner@example.com", "password": PASSWORD}, follow_redirects=False
+            "/admin/login", data={"email": "owner@example.com", "password": PASSWORD}, follow_redirects=False
         )
         assert response.status_code == 303, response.text
-        self.csrf = re.search(r'name="csrf" value="([^"]+)"', client.get("/").text).group(1)
+        self.csrf = re.search(r'name="csrf" value="([^"]+)"', client.get("/admin/").text).group(1)
 
     def get(self, url, **kw):
         return self.client.get(url, **kw)
@@ -103,3 +111,10 @@ def client():
 @pytest.fixture
 def browser(client, admin):
     return Browser(client)
+
+
+@pytest.fixture(scope="session")
+def public_key():
+    from app import lease
+
+    return lease.generate_keypair(KEY_FILE)

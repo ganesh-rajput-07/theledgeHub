@@ -25,14 +25,14 @@ def make_plan(browser, **overrides):
         "is_active": "on",
         "is_public": "on",
     } | overrides
-    response = browser.post("/plans/new", data)
+    response = browser.post("/admin/plans/new", data)
     assert response.status_code == 303, response.text
     return data
 
 
 def make_firm(browser, email="shah@example.com", **overrides):
     data = {"name": "Shah & Associates", "email": email, "mobile": "98250 12345", "city": "Surat"} | overrides
-    response = browser.post("/firms/new", data)
+    response = browser.post("/admin/firms/new", data)
     assert response.status_code == 303, response.text
     return response.headers["location"]
 
@@ -64,34 +64,42 @@ def subscription(db, firm_url):
 
 
 def test_pages_require_sign_in(client):
-    for url in ("/", "/firms", "/plans", "/payments", "/settings", "/activity", "/payments.csv"):
+    for url in (
+        "/admin/",
+        "/admin/firms",
+        "/admin/plans",
+        "/admin/payments",
+        "/admin/settings",
+        "/admin/activity",
+        "/admin/payments.csv",
+    ):
         response = client.get(url, follow_redirects=False)
-        assert response.status_code == 303 and response.headers["location"] == "/login", url
+        assert response.status_code == 303 and response.headers["location"] == "/admin/login", url
 
 
 def test_wrong_password_and_lockout(client, admin, db):
     for _ in range(5):
-        assert client.post("/login", data={"email": admin.email, "password": "wrong-password"}).status_code == 401
+        assert client.post("/admin/login", data={"email": admin.email, "password": "wrong-password"}).status_code == 401
     # Locked now: even the right password is refused for a while.
-    response = client.post("/login", data={"email": admin.email, "password": "admin-password-123"})
+    response = client.post("/admin/login", data={"email": admin.email, "password": "admin-password-123"})
     assert response.status_code == 401
     assert db.scalar(select(AuditEvent).where(AuditEvent.action == "admin.locked"))
 
 
 def test_posts_need_csrf_token_and_same_origin(browser):
-    response = browser.client.post("/plans/new", data={"name": "X"}, follow_redirects=False)
+    response = browser.client.post("/admin/plans/new", data={"name": "X"}, follow_redirects=False)
     assert response.status_code == 403
-    response = browser.post("/plans/new", {"name": "X"}, headers={"origin": "https://evil.example"})
+    response = browser.post("/admin/plans/new", {"name": "X"}, headers={"origin": "https://evil.example"})
     assert response.status_code == 403
 
 
 def test_sign_out_ends_the_session(browser):
-    assert browser.post("/logout").status_code == 303
-    assert browser.get("/", follow_redirects=False).status_code == 303
+    assert browser.post("/admin/logout").status_code == 303
+    assert browser.get("/admin/", follow_redirects=False).status_code == 303
 
 
 def test_security_headers(browser):
-    headers = browser.get("/").headers
+    headers = browser.get("/admin/").headers
     assert headers["x-frame-options"] == "DENY"
     assert "frame-ancestors 'none'" in headers["content-security-policy"]
     assert headers["cache-control"] == "no-store"
@@ -102,9 +110,9 @@ def test_security_headers(browser):
 
 def test_create_and_edit_plan_price_is_audited(browser, db):
     make_plan(browser)
-    assert "₹2,499" in browser.get("/plans").text
+    assert "₹2,499" in browser.get("/admin/plans").text
     response = browser.post(
-        f"/plans/{plan_id(db)}",
+        f"/admin/plans/{plan_id(db)}",
         {
             "name": "Team",
             "code": "team",
@@ -124,11 +132,12 @@ def test_create_and_edit_plan_price_is_audited(browser, db):
 
 def test_plan_validation(browser):
     make_plan(browser)
-    assert browser.post("/plans/new", {"name": "Dup", "code": "team", "price": "1"}).status_code == 400
-    assert browser.post("/plans/new", {"name": "Bad", "code": "Bad Code", "price": "1"}).status_code == 400
-    assert browser.post("/plans/new", {"name": "Neg", "code": "neg", "price": "-5"}).status_code == 400
+    assert browser.post("/admin/plans/new", {"name": "Dup", "code": "team", "price": "1"}).status_code == 400
+    assert browser.post("/admin/plans/new", {"name": "Bad", "code": "Bad Code", "price": "1"}).status_code == 400
+    assert browser.post("/admin/plans/new", {"name": "Neg", "code": "neg", "price": "-5"}).status_code == 400
     assert (
-        browser.post("/plans/new", {"name": "Q", "code": "q", "price": "1", "billing_months": "2"}).status_code == 400
+        browser.post("/admin/plans/new", {"name": "Q", "code": "q", "price": "1", "billing_months": "2"}).status_code
+        == 400
     )
 
 
@@ -137,7 +146,7 @@ def test_price_change_does_not_touch_existing_subscriptions(browser, db):
     firm_url = make_firm(browser)
     assert pay(browser, firm_url, db).status_code == 303
     browser.post(
-        f"/plans/{plan_id(db)}",
+        f"/admin/plans/{plan_id(db)}",
         {
             "name": "Team",
             "code": "team",
@@ -155,10 +164,12 @@ def test_price_change_does_not_touch_existing_subscriptions(browser, db):
 
 def test_firm_validation(browser):
     make_firm(browser)
-    assert browser.post("/firms/new", {"name": "Other", "email": "SHAH@example.com"}).status_code == 400
-    assert browser.post("/firms/new", {"name": "X", "email": "not-an-email"}).status_code == 400
-    assert browser.post("/firms/new", {"name": "X", "email": "x@example.com", "gstin": "123"}).status_code == 400
-    assert browser.post("/firms/new", {"name": "X", "email": "x@example.com", "mobile": "12345"}).status_code == 400
+    assert browser.post("/admin/firms/new", {"name": "Other", "email": "SHAH@example.com"}).status_code == 400
+    assert browser.post("/admin/firms/new", {"name": "X", "email": "not-an-email"}).status_code == 400
+    assert browser.post("/admin/firms/new", {"name": "X", "email": "x@example.com", "gstin": "123"}).status_code == 400
+    assert (
+        browser.post("/admin/firms/new", {"name": "X", "email": "x@example.com", "mobile": "12345"}).status_code == 400
+    )
 
 
 def test_new_firm_is_pending_with_reference(browser, db):
@@ -167,8 +178,8 @@ def test_new_firm_is_pending_with_reference(browser, db):
     assert firm.reference.startswith("KH-")
     page = browser.get(firm_url).text
     assert "Pending payment" in page and firm.reference in page
-    assert "Shah &amp; Associates" in browser.get("/firms?status=pending").text
-    assert "Shah" not in browser.get("/firms?status=active").text
+    assert "Shah &amp; Associates" in browser.get("/admin/firms?status=pending").text
+    assert "Shah" not in browser.get("/admin/firms?status=active").text
 
 
 # ------------------------------------------------------------------ payments & subscriptions
@@ -297,7 +308,7 @@ def test_payments_csv_escapes_formulas(browser, db):
     make_plan(browser)
     firm_url = make_firm(browser, name='=HYPERLINK("http://x")')
     pay(browser, firm_url, db, note="+cmd")
-    csv_text = browser.get("/payments.csv?month=2026-11").text
+    csv_text = browser.get("/admin/payments.csv?month=2026-11").text
     assert "'=HYPERLINK" in csv_text and "'+cmd" in csv_text
     assert "2948.82" in csv_text
 
@@ -306,18 +317,18 @@ def test_dashboard_numbers(browser, db):
     make_plan(browser)
     pay(browser, make_firm(browser), db)
     make_firm(browser, email="pending@example.com", name="Pending Firm")
-    page = browser.get("/").text
+    page = browser.get("/admin/").text
     assert "₹2,499" in page  # monthly recurring revenue, excl. GST
     assert "₹2,948.82" in page  # collected this month
     assert "Pending Firm" in page
 
 
 def test_settings_validation_and_save(browser, db):
-    assert browser.post("/settings", {"grace_days": "40"}).status_code == 400
-    assert browser.post("/settings", {"gst_percent": "abc"}).status_code == 400
-    assert browser.post("/settings", {"business_gstin": "XYZ"}).status_code == 400
-    assert browser.post("/settings", {"upi_id": "ganesh@okhdfcbank", "grace_days": "3"}).status_code == 303
-    assert "ganesh@okhdfcbank" in browser.get("/settings").text
+    assert browser.post("/admin/settings", {"grace_days": "40"}).status_code == 400
+    assert browser.post("/admin/settings", {"gst_percent": "abc"}).status_code == 400
+    assert browser.post("/admin/settings", {"business_gstin": "XYZ"}).status_code == 400
+    assert browser.post("/admin/settings", {"upi_id": "ganesh@okhdfcbank", "grace_days": "3"}).status_code == 303
+    assert "ganesh@okhdfcbank" in browser.get("/admin/settings").text
     event = db.scalar(select(AuditEvent).where(AuditEvent.action == "settings.update"))
     assert event.details["grace_days"] == {"from": "0", "to": "3"}
 
@@ -325,19 +336,20 @@ def test_settings_validation_and_save(browser, db):
 def test_change_password(browser, client):
     assert (
         browser.post(
-            "/account", {"current_password": "nope", "new_password": "x" * 12, "confirm_password": "x" * 12}
+            "/admin/account", {"current_password": "nope", "new_password": "x" * 12, "confirm_password": "x" * 12}
         ).status_code
         == 400
     )
     assert (
         browser.post(
-            "/account", {"current_password": "admin-password-123", "new_password": "short", "confirm_password": "short"}
+            "/admin/account",
+            {"current_password": "admin-password-123", "new_password": "short", "confirm_password": "short"},
         ).status_code
         == 400
     )
     assert (
         browser.post(
-            "/account",
+            "/admin/account",
             {
                 "current_password": "admin-password-123",
                 "new_password": "new-password-456",
@@ -349,12 +361,12 @@ def test_change_password(browser, client):
     client.cookies.clear()
     assert (
         client.post(
-            "/login", data={"email": "owner@example.com", "password": "new-password-456"}, follow_redirects=False
+            "/admin/login", data={"email": "owner@example.com", "password": "new-password-456"}, follow_redirects=False
         ).status_code
         == 303
     )
 
 
 def test_unknown_ids_are_404(browser):
-    assert browser.get("/firms/not-a-uuid").status_code == 404
-    assert browser.get("/plans/00000000-0000-0000-0000-000000000000").status_code == 404
+    assert browser.get("/admin/firms/not-a-uuid").status_code == 404
+    assert browser.get("/admin/plans/00000000-0000-0000-0000-000000000000").status_code == 404
