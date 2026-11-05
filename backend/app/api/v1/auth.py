@@ -4,6 +4,8 @@ from sqlalchemy import select
 from app.api.deps import ClientIP, CurrentUser, DbSession
 from app.core.config import get_settings
 from app.core.rate_limit import limiter
+from app.licensing import lease as leases
+from app.licensing import service as licensing
 from app.models import Membership, Organization
 from app.schemas.auth import (
     LoginRequest,
@@ -36,6 +38,8 @@ def _enforce(db: DbSession, key: str, limit: int) -> None:
 
 @router.post("/register", status_code=status.HTTP_201_CREATED, response_model=UserRead)
 def register(data: RegisterRequest, db: DbSession, ip: ClientIP):
+    if licensing.desktop_mode():
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Accounts are created on the KnowledgeHub website.")
     window = get_settings().rate_limit_window_seconds
     _enforce(db, f"register:ip:{ip}", get_settings().register_ip_max_attempts)
     limiter.hit(db, f"register:ip:{ip}", window)
@@ -57,6 +61,8 @@ def login(data: LoginRequest, db: DbSession, ip: ClientIP):
     _enforce(db, email_key, settings.login_max_failures)
     _enforce(db, ip_key, settings.login_ip_max_attempts)
     limiter.hit(db, ip_key, window)
+    if licensing.desktop_mode():
+        return _desktop_login(data, db, ip, email_key, window)
     try:
         user = auth_service.authenticate(db, data.email, data.password)
     except AuthError as exc:
@@ -66,6 +72,22 @@ def login(data: LoginRequest, db: DbSession, ip: ClientIP):
     limiter.reset(db, email_key)
     audit_service.record(db, "auth.login", user=user, ip=ip)
     return auth_service.issue_tokens(db, user)
+
+
+def _desktop_login(data: LoginRequest, db: DbSession, ip: str, email_key: str, window: int):
+    """Installed app: the licence server checks the password and the subscription, and signs a lease."""
+    try:
+        result = licensing.login(db, data.email, data.password)
+    except licensing.LicenceError as exc:
+        if exc.code == "invalid_credentials":
+            limiter.hit(db, email_key, window)
+        audit_service.record(
+            db, "auth.login_failed", email=auth_service.normalize_email(data.email), ip=ip, licence=exc.code
+        )
+        raise HTTPException(exc.status, exc.message, headers={"X-Licence-Code": exc.code}) from exc
+    limiter.reset(db, email_key)
+    audit_service.record(db, "auth.login", user=result.user, ip=ip, licence_seconds=result.lease.seconds_left)
+    return auth_service.issue_tokens(db, result.user)
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -79,6 +101,8 @@ def refresh(data: RefreshRequest, db: DbSession):
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(data: RefreshRequest, db: DbSession):
     """Revokes the refresh token. Access tokens are short-lived and simply expire."""
+    if licensing.desktop_mode():
+        leases.clear()  # signing out of the installed app forgets the licence too
     try:
         auth_service.logout(db, data.refresh_token)
     except AuthError as exc:
