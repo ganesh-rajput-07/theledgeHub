@@ -1,11 +1,11 @@
-{% extends "base.html" %}{% from "_status.html" import pill %}
+{% extends "admin/base.html" %}{% from "admin/_status.html" import pill %}
 {% block title %}Firms{% endblock %}
 {% block content %}
 <div class="head"><div><h1>Firms</h1><p class="sub">Every CA firm that registered or that you added.</p></div>
-<a class="btn" href="/firms/new">+ Add firm</a></div>
+<a class="btn" href="/admin/firms/new">+ Add firm</a></div>
 <div class="tabs">
   {% for code, label in [('','All'),('active','Active'),('trial','Trial'),('grace','Grace'),('pending','Pending payment'),('expired','Expired'),('blocked','Blocked')] %}
-  <a href="/firms?status={{ code }}{% if q %}&q={{ q|urlencode }}{% endif %}" class="{{ 'on' if status == code }}">{{ label }}</a>{% endfor %}
+  <a href="/admin/firms?status={{ code }}{% if q %}&q={{ q|urlencode }}{% endif %}" class="{{ 'on' if status == code }}">{{ label }}</a>{% endfor %}
 </div>
 <form method="get" class="row w520 mb16">
   <input type="hidden" name="status" value="{{ status }}">
@@ -15,7 +15,7 @@
 <div class="card flush"><table>
 <tr><th>Firm</th><th>Contact</th><th>Reference</th><th>Plan</th><th>Status</th><th>Access until</th></tr>
 {% for firm, s in rows %}<tr>
-  <td><a href="/firms/{{ firm.id }}"><b>{{ firm.name }}</b></a>{% if firm.city %}<br><span class="small muted">{{ firm.city }}</span>{% endif %}</td>
+  <td><a href="/admin/firms/{{ firm.id }}"><b>{{ firm.name }}</b></a>{% if firm.city %}<br><span class="small muted">{{ firm.city }}</span>{% endif %}</td>
   <td class="small">{{ firm.contact_name }}<br>{{ firm.email }}<br>{{ firm.mobile }}</td>
   <td class="mono">{{ firm.reference }}</td>
   <td>{{ firm.subscription.plan.name if firm.subscription else '—' }}{% if firm.subscription %}<br><span class="small muted">{{ firm.subscription.computers_allowed }} computer(s)</span>{% endif %}</td>

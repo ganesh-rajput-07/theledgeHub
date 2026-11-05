@@ -1,12 +1,12 @@
-{% extends "base.html" %}{% block title %}Payments{% endblock %}
+{% extends "admin/base.html" %}{% block title %}Payments{% endblock %}
 {% block content %}
 <div class="head"><div><h1>Payments</h1><p class="sub">{{ month.strftime('%B %Y') }} · {{ rows|length }} payment(s) · {{ total|rupees }} received, of which GST {{ gst_total|rupees }}</p></div>
-<div class="row"><a class="btn ghost" href="/payments?month={{ prev.strftime('%Y-%m') }}">← {{ prev.strftime('%b') }}</a>
-<a class="btn ghost" href="/payments?month={{ next.strftime('%Y-%m') }}">{{ next.strftime('%b') }} →</a>
-<a class="btn" href="/payments.csv?month={{ month.strftime('%Y-%m') }}">Download CSV</a></div></div>
+<div class="row"><a class="btn ghost" href="/admin/payments?month={{ prev.strftime('%Y-%m') }}">← {{ prev.strftime('%b') }}</a>
+<a class="btn ghost" href="/admin/payments?month={{ next.strftime('%Y-%m') }}">{{ next.strftime('%b') }} →</a>
+<a class="btn" href="/admin/payments.csv?month={{ month.strftime('%Y-%m') }}">Download CSV</a></div></div>
 <div class="card flush"><table>
 <tr><th>Paid on</th><th>Firm</th><th>Plan</th><th class="num">Amount</th><th class="num">GST</th><th>Method / UTR</th><th>Covers</th><th>Note</th></tr>
-{% for p in rows %}<tr><td>{{ p.paid_on|d }}</td><td><a href="/firms/{{ p.firm_id }}">{{ p.firm.name }}</a><br><span class="small muted mono">{{ p.firm.reference }}</span></td><td>{{ p.plan.name }}</td>
+{% for p in rows %}<tr><td>{{ p.paid_on|d }}</td><td><a href="/admin/firms/{{ p.firm_id }}">{{ p.firm.name }}</a><br><span class="small muted mono">{{ p.firm.reference }}</span></td><td>{{ p.plan.name }}</td>
 <td class="num"><b>{{ p.amount_paise|rupees }}</b></td><td class="num">{{ p.gst_paise|rupees }}</td><td>{{ METHODS[p.method] }}<br><span class="small mono muted">{{ p.utr }}</span></td>
 <td class="small">{{ p.covers_from|d }} – {{ p.covers_to|d }}</td><td class="small">{{ p.note }}</td></tr>
 {% else %}<tr><td colspan="8" class="empty">No payments in {{ month.strftime('%B %Y') }}.</td></tr>{% endfor %}

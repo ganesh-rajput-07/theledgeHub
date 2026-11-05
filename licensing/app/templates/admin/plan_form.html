@@ -1,7 +1,7 @@
-{% extends "base.html" %}{% block title %}{{ plan.name if plan else 'New plan' }}{% endblock %}
+{% extends "admin/base.html" %}{% block title %}{{ plan.name if plan else 'New plan' }}{% endblock %}
 {% macro v(key, current) %}{{ form[key] if key in form else current }}{% endmacro %}
 {% block content %}
-<p class="small"><a href="/plans">← Plans &amp; prices</a></p>
+<p class="small"><a href="/admin/plans">← Plans &amp; prices</a></p>
 <h1>{{ plan.name if plan else 'New plan' }}</h1>
 <p class="sub">{% if plan %}{{ subscribers }} firm(s) on this plan. A new price applies to new sales and renewals only.{% else %}Prices exclude GST.{% endif %}</p>
 <form method="post" class="card w760">
@@ -33,6 +33,6 @@
   {% set public = (form.is_public == 'on') if form else (plan.is_public if plan else true) %}
   <div class="field check"><input type="checkbox" id="is_active" name="is_active" {{ 'checked' if active }}><label for="is_active" class="m0">On sale <span class="hint">(can be chosen for new payments)</span></label></div>
   <div class="field check"><input type="checkbox" id="is_public" name="is_public" {{ 'checked' if public }}><label for="is_public" class="m0">Show on the website pricing page <span class="hint">(untick for private/custom deals)</span></label></div>
-  <div class="row"><button class="btn">Save plan</button><a class="btn ghost" href="/plans">Cancel</a></div>
+  <div class="row"><button class="btn">Save plan</button><a class="btn ghost" href="/admin/plans">Cancel</a></div>
 </form>
 {% endblock %}

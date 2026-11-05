@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block title %}My password{% endblock %}
+{% extends "admin/base.html" %}{% block title %}My password{% endblock %}
 {% block content %}
 <h1>My password</h1><p class="sub">{{ me.email }}</p>
 <form method="post" class="card w420"><input type="hidden" name="csrf" value="{{ csrf }}">

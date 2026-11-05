@@ -6,16 +6,16 @@
 <aside class="side">
   <div class="brand">KnowledgeHub<small>Licence admin</small></div>
   <nav>
-    <a href="/" class="{{ 'on' if nav == 'home' }}">Dashboard</a>
-    <a href="/firms" class="{{ 'on' if nav == 'firms' }}">Firms</a>
-    <a href="/plans" class="{{ 'on' if nav == 'plans' }}">Plans &amp; prices</a>
-    <a href="/payments" class="{{ 'on' if nav == 'payments' }}">Payments</a>
-    <a href="/settings" class="{{ 'on' if nav == 'settings' }}">Settings</a>
-    <a href="/activity" class="{{ 'on' if nav == 'activity' }}">Activity log</a>
+    <a href="/admin/" class="{{ 'on' if nav == 'home' }}">Dashboard</a>
+    <a href="/admin/firms" class="{{ 'on' if nav == 'firms' }}">Firms</a>
+    <a href="/admin/plans" class="{{ 'on' if nav == 'plans' }}">Plans &amp; prices</a>
+    <a href="/admin/payments" class="{{ 'on' if nav == 'payments' }}">Payments</a>
+    <a href="/admin/settings" class="{{ 'on' if nav == 'settings' }}">Settings</a>
+    <a href="/admin/activity" class="{{ 'on' if nav == 'activity' }}">Activity log</a>
   </nav>
   <div class="who">{{ me.name }}<br><span class="muted">{{ me.email }}</span><br>
-    <a href="/account">My password</a> ·
-    <form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Sign out</button></form>
+    <a href="/admin/account">My password</a> ·
+    <form method="post" action="/admin/logout" class="inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Sign out</button></form>
   </div>
 </aside>
 <main>

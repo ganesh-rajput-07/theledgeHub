@@ -29,6 +29,8 @@
     update();
   });
   form.addEventListener("input", (e) => { if (e.target.name !== "amount") update(); });
+  const first = plans[form.plan_id.value];
+  if (first && parseInt(form.computers.value || "0", 10) < first.included) form.computers.value = first.included;
   update();
 })();
 // Confirm dangerous buttons.

@@ -1,8 +1,8 @@
-{% extends "base.html" %}{% from "_status.html" import pill %}{% from "_firm_fields.html" import fields %}
+{% extends "admin/base.html" %}{% from "admin/_status.html" import pill %}{% from "admin/_firm_fields.html" import fields %}
 {% block title %}{{ firm.name }}{% endblock %}
 {% block content %}
 {% set sub = firm.subscription %}
-<p class="small"><a href="/firms">← Firms</a></p>
+<p class="small"><a href="/admin/firms">← Firms</a></p>
 <div class="head"><div><h1>{{ firm.name }}</h1>
 <p class="sub">Reference <b class="mono">{{ firm.reference }}</b> · {{ firm.email }}{% if firm.mobile %} · {{ firm.mobile }}{% endif %}{% if firm.city %} · {{ firm.city }}{% endif %}</p></div>
 <div>{{ pill(status) }}</div></div>
@@ -15,7 +15,8 @@
     <dt>Price they pay</dt><dd>{{ sub.price_paise|rupees }} / {{ {1:'month',3:'quarter',6:'half-year',12:'year'}[sub.billing_months] }} <span class="muted small">excl. GST</span></dd>
     <dt>Computers allowed</dt><dd>{{ sub.computers_allowed }} <span class="muted small">({{ computers|length }} in use)</span></dd>
     <dt>Access until</dt><dd><b>{{ sub.ends_on|d }}</b></dd>
-  </dl>{% else %}<p class="muted">No subscription yet. Waiting for the first payment (reference <b class="mono">{{ firm.reference }}</b>).</p>{% endif %}
+  </dl>{% else %}<p class="muted">No subscription yet. Waiting for the first payment (reference <b class="mono">{{ firm.reference }}</b>).</p>
+  {% if requested %}<p>Chose on the website: <b>{{ requested.name }}</b> ({{ requested.price_paise|rupees }} + GST)</p>{% endif %}{% endif %}
 </div>
 <div class="card"><h2>Payments</h2>
   <table><tr><th>Paid on</th><th class="num">Amount</th><th>Method</th><th>Covers</th></tr>
@@ -24,15 +25,24 @@
 </div>
 </div>
 
+{% if claims %}<div class="card"><h2>Customer says they've paid</h2>
+  <p class="small muted">Check your bank / UPI app for the UTR, then click <b>Use</b> to fill the payment form, or dismiss it if you can't find the money.</p>
+  <table><tr><th class="num">Amount</th><th>Method / UTR</th><th>Paid on</th><th>Note</th><th></th></tr>
+  {% for c in claims %}<tr><td class="num"><b>{{ c.amount_paise|rupees }}</b></td><td>{{ METHODS[c.method] }}<br><span class="mono">{{ c.utr }}</span></td><td>{{ c.paid_on|d }}</td><td class="small">{{ c.note }}</td>
+  <td><div class="row"><a class="btn small" href="/admin/firms/{{ firm.id }}?claim={{ c.id }}">Use</a>
+  <form method="post" action="/admin/firms/{{ firm.id }}/claims/{{ c.id }}/dismiss" class="row"><input type="hidden" name="csrf" value="{{ csrf }}"><input name="reason" placeholder="Reason (optional)" class="w170"><button class="btn ghost small" data-confirm="Dismiss this reported payment?">Dismiss</button></form></div></td></tr>{% endfor %}</table>
+</div>{% endif %}
+
 <details class="panel" {{ 'open' if panel == 'payment' or (not panel and not sub) }}><summary>Record a payment (activate / renew)</summary><div class="body">
   {% if plans %}
-  <form method="post" action="/firms/{{ firm.id }}/payment" id="payment-form" data-gst="{{ config.gst_percent }}">
+  <form method="post" action="/admin/firms/{{ firm.id }}/payment" id="payment-form" data-gst="{{ config.gst_percent }}">
     <input type="hidden" name="csrf" value="{{ csrf }}">
+    {% if form.claim_id %}<input type="hidden" name="claim_id" value="{{ form.claim_id }}"><div class="msg ok">Filled in from the customer's report. Check the UTR in your bank / UPI app before saving.</div>{% endif %}
     <script type="application/json" id="plan-data">{{ plan_js|tojson }}</script>
-    {% set chosen = form.plan_id or (sub.plan_id|string if sub else plans[0].id|string) %}
+    {% set chosen = form.plan_id or (sub.plan_id|string if sub else (requested.id|string if requested else plans[0].id|string)) %}
     <div class="grid g3">
       <div class="field"><label>Plan</label><select name="plan_id">{% for p in plans %}<option value="{{ p.id }}" {{ 'selected' if chosen == p.id|string }}>{{ p.name }} · {{ p.price_paise|rupees }}</option>{% endfor %}</select></div>
-      <div class="field"><label>Computers</label><input name="computers" inputmode="numeric" value="{{ form.computers or (sub.computers_allowed if sub else plans[0].computers_included) }}"></div>
+      <div class="field"><label>Computers</label><input name="computers" inputmode="numeric" value="{{ form.computers or (sub.computers_allowed if sub else (plan_js[chosen].included if chosen in plan_js else 1)) }}"></div>
       <div class="field"><label>Periods paid <span class="hint">(e.g. 3 months)</span></label><input name="periods" inputmode="numeric" value="{{ form.periods or 1 }}"></div>
     </div>
     <div class="quote" id="quote">Price list total appears here.</div>
@@ -48,11 +58,11 @@
     <p class="small muted">Renewing before expiry continues from the current end date, so no days are lost. After expiry or a trial, the period starts today.</p>
     <button class="btn">Record payment</button>
   </form>
-  {% else %}<p>Create a plan first under <a href="/plans">Plans &amp; prices</a>.</p>{% endif %}
+  {% else %}<p>Create a plan first under <a href="/admin/plans">Plans &amp; prices</a>.</p>{% endif %}
 </div></details>
 
 <details class="panel" {{ 'open' if panel == 'trial' }}><summary>Start a free trial</summary><div class="body">
-  {% if plans %}<form method="post" action="/firms/{{ firm.id }}/trial"><input type="hidden" name="csrf" value="{{ csrf }}">
+  {% if plans %}<form method="post" action="/admin/firms/{{ firm.id }}/trial"><input type="hidden" name="csrf" value="{{ csrf }}">
     <div class="grid g3">
       <div class="field"><label>Plan</label><select name="plan_id">{% for p in plans %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></div>
       <div class="field"><label>Days</label><input name="days" inputmode="numeric" value="{{ form.days or config.trial_days }}"></div>
@@ -62,7 +72,7 @@
 </div></details>
 
 {% if sub %}<details class="panel" {{ 'open' if panel == 'adjust' }}><summary>Adjust end date or computers (corrections, goodwill days)</summary><div class="body">
-  <form method="post" action="/firms/{{ firm.id }}/adjust"><input type="hidden" name="csrf" value="{{ csrf }}">
+  <form method="post" action="/admin/firms/{{ firm.id }}/adjust"><input type="hidden" name="csrf" value="{{ csrf }}">
     <div class="grid g3">
       <div class="field"><label>Access until</label><input type="date" name="ends_on" value="{{ form.ends_on or sub.ends_on.isoformat() }}"></div>
       <div class="field"><label>Computers allowed</label><input name="computers" inputmode="numeric" value="{{ form.computers or sub.computers_allowed }}"></div>
@@ -74,19 +84,35 @@
 <details class="panel" {{ 'open' if panel == 'computers' }}><summary>Computers ({{ computers|length }}{% if sub %} of {{ sub.computers_allowed }}{% endif %})</summary><div class="body">
   <table><tr><th>Name</th><th>ID</th><th>App version</th><th>First seen</th><th>Last login</th><th></th></tr>
   {% for c in computers %}<tr><td>{{ c.name or '—' }}{% if c.blocked %} <span class="pill p-blocked">Blocked</span>{% endif %}</td><td class="mono small">{{ c.machine_hash[:12] }}</td><td>{{ c.app_version }}</td><td>{{ c.first_seen|dt }}</td><td>{{ c.last_seen|dt }}</td>
-    <td><form method="post" action="/firms/{{ firm.id }}/computers/{{ c.id }}" class="row"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <td><form method="post" action="/admin/firms/{{ firm.id }}/computers/{{ c.id }}" class="row"><input type="hidden" name="csrf" value="{{ csrf }}">
       <button class="btn ghost small" name="op" value="{{ 'unblock' if c.blocked else 'block' }}">{{ 'Unblock' if c.blocked else 'Block' }}</button>
       <button class="btn ghost small" name="op" value="remove" data-confirm="Remove this computer? It frees a seat; the app on it must log in again.">Remove</button></form></td></tr>
   {% else %}<tr><td colspan="6" class="empty">No computers yet. They appear here when the desktop app logs in.</td></tr>{% endfor %}</table>
 </div></details>
 
+<details class="panel" {{ 'open' if panel == 'users' }}><summary>Logins ({{ users|length }})</summary><div class="body">
+  <table><tr><th>Name</th><th>Email</th><th>Role</th><th>Last login</th><th>Forgot password?</th></tr>
+  {% for u in users %}<tr><td>{{ u.name }}{% if not u.is_active %} <span class="pill p-off">Off</span>{% endif %}</td><td>{{ u.email }}</td><td>{{ u.role|capitalize }}</td><td>{{ u.last_login_at|dt }}</td>
+  <td><form method="post" action="/admin/firms/{{ firm.id }}/users/{{ u.id }}/password" class="row"><input type="hidden" name="csrf" value="{{ csrf }}"><input name="password" placeholder="New password (12+)" minlength="12" required class="w170" autocomplete="off"><button class="btn ghost small">Set</button></form></td></tr>
+  {% else %}<tr><td colspan="5" class="empty">No logins. Firms that register on the website get one automatically; for firms you added, create the owner's login here.</td></tr>{% endfor %}</table>
+  <form method="post" action="/admin/firms/{{ firm.id }}/users"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="grid g3">
+      <div class="field"><label>Name</label><input name="name" value="{{ form.name if panel == 'users' else '' }}" required></div>
+      <div class="field"><label>Email</label><input name="email" type="email" value="{{ form.email if panel == 'users' else '' }}" required></div>
+      <div class="field"><label>Role</label><select name="role">{% for k in ['owner','admin','member'] %}<option value="{{ k }}" {{ 'selected' if (not users and k == 'owner') or (users and k == 'member') }}>{{ k|capitalize }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="field"><label>First password <span class="hint">(12+ characters; share it with them)</span></label><input name="password" type="text" required minlength="12" autocomplete="off"></div>
+    <button class="btn ghost">Create login</button>
+  </form>
+</div></details>
+
 <details class="panel" {{ 'open' if panel == 'edit' }}><summary>Edit firm details</summary><div class="body">
-  <form method="post" action="/firms/{{ firm.id }}/edit"><input type="hidden" name="csrf" value="{{ csrf }}">
+  <form method="post" action="/admin/firms/{{ firm.id }}/edit"><input type="hidden" name="csrf" value="{{ csrf }}">
     {{ fields(form if panel == 'edit' else {}, firm) }}<button class="btn ghost">Save details</button></form>
 </div></details>
 
 <details class="panel" {{ 'open' if panel == 'block' }}><summary>{{ 'Unblock firm' if firm.blocked else 'Block firm' }}</summary><div class="body">
-  <form method="post" action="/firms/{{ firm.id }}/block"><input type="hidden" name="csrf" value="{{ csrf }}">
+  <form method="post" action="/admin/firms/{{ firm.id }}/block"><input type="hidden" name="csrf" value="{{ csrf }}">
   {% if firm.blocked %}<input type="hidden" name="blocked" value="0"><button class="btn ghost">Unblock</button>
   {% else %}<input type="hidden" name="blocked" value="1">
     <p class="small muted">Blocks every login for this firm, even with time left. Takes effect at their next login (at most {{ config.lease_hours }} hours).</p>

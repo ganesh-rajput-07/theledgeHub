@@ -9,21 +9,21 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app import money, services
+from app import customers, money, services
 from app.admin.auth import COOKIE, Ctx, authenticate, checked, client_ip, current, end_session, start_session
 from app.config import get_settings
 from app.db import get_db
-from app.models import AuditEvent, Computer, Firm, Payment, Plan
+from app.models import AuditEvent, Computer, CustomerUser, Firm, Payment, PaymentClaim, Plan
 from app.security import MIN_PASSWORD_LENGTH, hash_password, verify_password
 from app.services import RuleError
 
-router = APIRouter()
+router = APIRouter(prefix="/admin")
 templates = Jinja2Templates(directory=str(__import__("pathlib").Path(__file__).parents[1] / "templates"))
 templates.env.filters["rupees"] = money.rupees
 templates.env.filters["d"] = lambda value: value.strftime("%d %b %Y") if value else "-"
 templates.env.filters["dt"] = lambda value: value.astimezone(money.IST).strftime("%d %b %Y, %H:%M") if value else "-"
 templates.env.globals["METHODS"] = services.METHODS
-FLASH = "kh_flash"
+FLASH = "kh_admin_flash"
 
 
 # ------------------------------------------------------------------ helpers
@@ -44,7 +44,7 @@ def render(request: Request, name: str, ctx: Ctx | None = None, status_code: int
         status_code=status_code,
     )
     if flash:
-        response.delete_cookie(FLASH)
+        response.delete_cookie(FLASH, path="/admin")
     return response
 
 
@@ -52,7 +52,13 @@ def go(url: str, message: str | None = None) -> RedirectResponse:
     response = RedirectResponse(url, status_code=303)
     if message:
         response.set_cookie(
-            FLASH, message, max_age=30, httponly=True, samesite="strict", secure=get_settings().cookie_secure
+            FLASH,
+            message,
+            max_age=30,
+            httponly=True,
+            samesite="strict",
+            secure=get_settings().cookie_secure,
+            path="/admin",
         )
     return response
 
@@ -90,7 +96,7 @@ def _get(db: Session, model, raw_id: str):
 
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    return render(request, "login.html")
+    return render(request, "admin/login.html")
 
 
 @router.post("/login")
@@ -101,12 +107,12 @@ async def login(request: Request, db: Session = Depends(get_db)):
     if admin is None:
         return render(
             request,
-            "login.html",
+            "admin/login.html",
             status_code=401,
             error="Wrong email or password, or the account is locked for a few minutes after repeated attempts.",
             email=form.get("email", ""),
         )
-    response = go("/")
+    response = go("/admin/")
     response.set_cookie(
         COOKIE,
         start_session(db, admin, ip),
@@ -114,6 +120,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
         samesite="strict",
         secure=get_settings().cookie_secure,
         max_age=get_settings().session_hours * 3600,
+        path="/admin",
     )
     return response
 
@@ -121,8 +128,8 @@ async def login(request: Request, db: Session = Depends(get_db)):
 @router.post("/logout")
 def logout(request: Request, ctx: Ctx = Depends(checked), db: Session = Depends(get_db)):
     end_session(db, request.cookies.get(COOKIE))
-    response = go("/login")
-    response.delete_cookie(COOKIE)
+    response = go("/admin/login")
+    response.delete_cookie(COOKIE, path="/admin")
     return response
 
 
@@ -132,8 +139,9 @@ def logout(request: Request, ctx: Ctx = Depends(checked), db: Session = Depends(
 @router.get("/", response_class=HTMLResponse)
 def home(request: Request, ctx: Ctx = Depends(current), db: Session = Depends(get_db)):
     data = services.dashboard(db)
+    data["claims"] = customers.open_claims(db)
     grace = int(services.settings(db)["grace_days"])
-    return render(request, "dashboard.html", ctx, nav="home", grace=grace, **data)
+    return render(request, "admin/dashboard.html", ctx, nav="home", grace=grace, **data)
 
 
 # ------------------------------------------------------------------ plans
@@ -166,7 +174,7 @@ def _plan_data(form) -> dict:
 def plan_list(request: Request, ctx: Ctx = Depends(current), db: Session = Depends(get_db)):
     return render(
         request,
-        "plans.html",
+        "admin/plans.html",
         ctx,
         nav="plans",
         plans=services.plans(db),
@@ -177,7 +185,7 @@ def plan_list(request: Request, ctx: Ctx = Depends(current), db: Session = Depen
 
 @router.get("/plans/new", response_class=HTMLResponse)
 def plan_new(request: Request, ctx: Ctx = Depends(current)):
-    return render(request, "plan_form.html", ctx, nav="plans", plan=None, form={})
+    return render(request, "admin/plan_form.html", ctx, nav="plans", plan=None, form={})
 
 
 @router.get("/plans/{plan_id}", response_class=HTMLResponse)
@@ -185,7 +193,7 @@ def plan_edit(plan_id: str, request: Request, ctx: Ctx = Depends(current), db: S
     plan = _get(db, Plan, plan_id)
     return render(
         request,
-        "plan_form.html",
+        "admin/plan_form.html",
         ctx,
         nav="plans",
         plan=plan,
@@ -212,7 +220,7 @@ async def _plan_save(request: Request, ctx: Ctx, db: Session, plan: Plan | None)
         db.rollback()
         return render(
             request,
-            "plan_form.html",
+            "admin/plan_form.html",
             ctx,
             status_code=400,
             nav="plans",
@@ -220,7 +228,7 @@ async def _plan_save(request: Request, ctx: Ctx, db: Session, plan: Plan | None)
             form=dict(form),
             error=str(error),
         )
-    return go("/plans", f"Saved plan {saved.name}.")
+    return go("/admin/plans", f"Saved plan {saved.name}.")
 
 
 # ------------------------------------------------------------------ firms
@@ -248,12 +256,12 @@ def firm_list(
     rows = [(firm, services.firm_status(firm, grace)) for firm in db.scalars(query).unique()]
     if status:
         rows = [row for row in rows if row[1].code == status]
-    return render(request, "firms.html", ctx, nav="firms", rows=rows, status=status, q=q)
+    return render(request, "admin/firms.html", ctx, nav="firms", rows=rows, status=status, q=q)
 
 
 @router.get("/firms/new", response_class=HTMLResponse)
 def firm_new(request: Request, ctx: Ctx = Depends(current)):
-    return render(request, "firm_new.html", ctx, nav="firms", form={})
+    return render(request, "admin/firm_new.html", ctx, nav="firms", form={})
 
 
 @router.post("/firms/new")
@@ -263,8 +271,10 @@ async def firm_create(request: Request, ctx: Ctx = Depends(checked), db: Session
         firm = services.create_firm(db, ctx.admin, {k: str(form.get(k, "")) for k in FIRM_FIELDS}, ctx.ip)
     except RuleError as error:
         db.rollback()
-        return render(request, "firm_new.html", ctx, status_code=400, nav="firms", form=dict(form), error=str(error))
-    return go(f"/firms/{firm.id}", f"Created {firm.name}. Payment reference: {firm.reference}")
+        return render(
+            request, "admin/firm_new.html", ctx, status_code=400, nav="firms", form=dict(form), error=str(error)
+        )
+    return go(f"/admin/firms/{firm.id}", f"Created {firm.name}. Payment reference: {firm.reference}")
 
 
 def _firm_page(request: Request, ctx: Ctx, db: Session, firm: Firm, status_code: int = 200, **extra):
@@ -295,7 +305,7 @@ def _firm_page(request: Request, ctx: Ctx, db: Session, firm: Firm, status_code:
     }
     return render(
         request,
-        "firm.html",
+        "admin/firm.html",
         ctx,
         status_code=status_code,
         nav="firms",
@@ -307,14 +317,34 @@ def _firm_page(request: Request, ctx: Ctx, db: Session, firm: Firm, status_code:
         computers=computers,
         events=events,
         config=config,
+        users=customers.team(db, firm),
+        claims=customers.open_claims(db, firm),
+        requested=db.get(Plan, firm.requested_plan_id) if firm.requested_plan_id else None,
         form=extra.pop("form", {}),
         **extra,
     )
 
 
 @router.get("/firms/{firm_id}", response_class=HTMLResponse)
-def firm_detail(firm_id: str, request: Request, ctx: Ctx = Depends(current), db: Session = Depends(get_db)):
-    return _firm_page(request, ctx, db, _get(db, Firm, firm_id))
+def firm_detail(
+    firm_id: str, request: Request, claim: str = "", ctx: Ctx = Depends(current), db: Session = Depends(get_db)
+):
+    firm = _get(db, Firm, firm_id)
+    if claim:
+        found = _get(db, PaymentClaim, claim)
+        if found.firm_id != firm.id:
+            raise HTTPException(404, "Not found")
+        form = {
+            "amount": f"{found.amount_paise / 100:.2f}",
+            "method": found.method,
+            "utr": found.utr,
+            "paid_on": found.paid_on.isoformat(),
+            "claim_id": str(found.id),
+        }
+        if found.plan_id:
+            form["plan_id"] = str(found.plan_id)
+        return _firm_page(request, ctx, db, firm, panel="payment", form=form)
+    return _firm_page(request, ctx, db, firm)
 
 
 async def _firm_action(request: Request, ctx: Ctx, db: Session, firm_id: str, panel: str, action) -> Response:
@@ -325,7 +355,7 @@ async def _firm_action(request: Request, ctx: Ctx, db: Session, firm_id: str, pa
     except RuleError as error:
         db.rollback()
         return _firm_page(request, ctx, db, firm, status_code=400, error=str(error), panel=panel, form=dict(form))
-    return go(f"/firms/{firm.id}", message)
+    return go(f"/admin/firms/{firm.id}", message)
 
 
 @router.post("/firms/{firm_id}/edit")
@@ -361,9 +391,79 @@ async def firm_payment(firm_id: str, request: Request, ctx: Ctx = Depends(checke
             note=str(form.get("note", "")),
             ip=ctx.ip,
         )
+        claim_id = str(form.get("claim_id") or "")
+        if claim_id:
+            claim = db.get(PaymentClaim, uuid.UUID(claim_id))
+            if claim and claim.firm_id == firm.id and claim.status == "open":
+                claim.status = "confirmed"
+                db.commit()
         return f"Payment recorded. {firm.name} has access until {payment.covers_to:%d %b %Y}."
 
     return await _firm_action(request, ctx, db, firm_id, "payment", act)
+
+
+@router.post("/firms/{firm_id}/claims/{claim_id}/dismiss")
+async def claim_dismiss(
+    firm_id: str, claim_id: str, request: Request, ctx: Ctx = Depends(checked), db: Session = Depends(get_db)
+):
+    def act(firm, form):
+        claim = _get(db, PaymentClaim, claim_id)
+        if claim.firm_id != firm.id or claim.status != "open":
+            raise HTTPException(404, "Not found")
+        claim.status = "dismissed"
+        services.audit(
+            db,
+            ctx.admin,
+            "payment.claim_dismiss",
+            f"Dismissed reported payment {money.rupees(claim.amount_paise)} (UTR {claim.utr}) "
+            f"from {firm.name}: {str(form.get('reason', '')).strip() or 'no reason given'}",
+            firm=firm,
+            ip=ctx.ip,
+        )
+        db.commit()
+        return "Reported payment dismissed."
+
+    return await _firm_action(request, ctx, db, firm_id, "payment", act)
+
+
+@router.post("/firms/{firm_id}/users")
+async def firm_add_user(firm_id: str, request: Request, ctx: Ctx = Depends(checked), db: Session = Depends(get_db)):
+    def act(firm, form):
+        customers.add_member(
+            db,
+            None,
+            firm,
+            name=str(form.get("name", "")),
+            email=str(form.get("email", "")),
+            role=str(form.get("role", "")),
+            password=str(form.get("password", "")),
+            ip=ctx.ip,
+            admin=ctx.admin,
+        )
+        return f"Login created for {form.get('email')}. Share the password with them."
+
+    return await _firm_action(request, ctx, db, firm_id, "users", act)
+
+
+@router.post("/firms/{firm_id}/users/{user_id}/password")
+async def firm_user_password(
+    firm_id: str, user_id: str, request: Request, ctx: Ctx = Depends(checked), db: Session = Depends(get_db)
+):
+    def act(firm, form):
+        user = _get(db, CustomerUser, user_id)
+        if user.firm_id != firm.id:
+            raise HTTPException(404, "Not found")
+        password = str(form.get("password", ""))
+        if len(password) < MIN_PASSWORD_LENGTH:
+            raise RuleError(f"New password must be at least {MIN_PASSWORD_LENGTH} characters.")
+        user.password_hash, user.failed_logins, user.locked_until = hash_password(password), 0, None
+        services.audit(
+            db, ctx.admin, "customer.password_reset", f"Reset the password of {user.email}", firm=firm, ip=ctx.ip
+        )
+        db.commit()
+        return f"New password set for {user.email}. Share it with them; they can change it in their account."
+
+    return await _firm_action(request, ctx, db, firm_id, "users", act)
 
 
 @router.post("/firms/{firm_id}/trial")
@@ -460,7 +560,7 @@ def payment_list(request: Request, month: str = "", ctx: Ctx = Depends(current),
     rows = _payments_in(db, start)
     return render(
         request,
-        "payments.html",
+        "admin/payments.html",
         ctx,
         nav="payments",
         rows=rows,
@@ -530,7 +630,7 @@ def payment_csv(month: str = "", ctx: Ctx = Depends(current), db: Session = Depe
 
 @router.get("/settings", response_class=HTMLResponse)
 def settings_page(request: Request, ctx: Ctx = Depends(current), db: Session = Depends(get_db)):
-    return render(request, "settings.html", ctx, nav="settings", values=services.settings(db))
+    return render(request, "admin/settings.html", ctx, nav="settings", values=services.settings(db))
 
 
 @router.post("/settings")
@@ -542,14 +642,14 @@ async def settings_save(request: Request, ctx: Ctx = Depends(checked), db: Sessi
         db.rollback()
         return render(
             request,
-            "settings.html",
+            "admin/settings.html",
             ctx,
             status_code=400,
             nav="settings",
             values=services.settings(db) | {k: str(v) for k, v in form.items()},
             error=str(error),
         )
-    return go("/settings", "Settings saved.")
+    return go("/admin/settings", "Settings saved.")
 
 
 @router.get("/activity", response_class=HTMLResponse)
@@ -562,12 +662,14 @@ def activity(request: Request, page: int = 1, ctx: Ctx = Depends(current), db: S
             select(AuditEvent).order_by(AuditEvent.created_at.desc()).offset((page - 1) * size).limit(size)
         ).unique()
     )
-    return render(request, "activity.html", ctx, nav="activity", events=events, page=page, more=page * size < total)
+    return render(
+        request, "admin/activity.html", ctx, nav="activity", events=events, page=page, more=page * size < total
+    )
 
 
 @router.get("/account", response_class=HTMLResponse)
 def account(request: Request, ctx: Ctx = Depends(current)):
-    return render(request, "account.html", ctx, nav="account")
+    return render(request, "admin/account.html", ctx, nav="account")
 
 
 @router.post("/account")
@@ -582,9 +684,9 @@ async def account_save(request: Request, ctx: Ctx = Depends(checked), db: Sessio
     elif new != form.get("confirm_password"):
         error = "The two new passwords don't match."
     if error:
-        return render(request, "account.html", ctx, status_code=400, nav="account", error=error)
+        return render(request, "admin/account.html", ctx, status_code=400, nav="account", error=error)
     admin = db.merge(ctx.admin)
     admin.password_hash = hash_password(new)
     services.audit(db, admin, "admin.password", f"{admin.email} changed their password", ip=ctx.ip)
     db.commit()
-    return go("/account", "Password changed.")
+    return go("/admin/account", "Password changed.")

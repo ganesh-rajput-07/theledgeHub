@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block title %}Settings{% endblock %}
+{% extends "admin/base.html" %}{% block title %}Settings{% endblock %}
 {% macro f(key, label, hint='', type='text') %}<div class="field"><label>{{ label }}{% if hint %} <span class="hint">{{ hint }}</span>{% endif %}</label><input name="{{ key }}" type="{{ type }}" value="{{ values[key] }}"></div>{% endmacro %}
 {% block content %}
 <h1>Settings</h1><p class="sub">Shown to customers on the website and used by the licence rules.</p>
@@ -17,6 +17,11 @@
   {{ f('grace_days', 'Grace days after expiry', '(0 = lock on the day after expiry)') }}
   {{ f('trial_days', 'Default trial length (days)') }}
   {{ f('computer_changes_per_month', 'Computer changes per month', '(self-service removals on the website)') }}
+</div></div>
+<div class="card"><h2>Desktop app</h2><div class="grid g2">
+  {{ f('download_url', 'Installer download link', '(https://; shown only to active customers)') }}
+  {{ f('latest_version', 'Latest version', '(e.g. 1.0.0)') }}
+  {{ f('min_app_version', 'Minimum version allowed', '(older apps must update; empty = any)') }}
 </div></div>
 <button class="btn">Save settings</button>
 </form>
