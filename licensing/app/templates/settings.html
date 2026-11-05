@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block title %}Settings{% endblock %}
+{% macro f(key, label, hint='', type='text') %}<div class="field"><label>{{ label }}{% if hint %} <span class="hint">{{ hint }}</span>{% endif %}</label><input name="{{ key }}" type="{{ type }}" value="{{ values[key] }}"></div>{% endmacro %}
+{% block content %}
+<h1>Settings</h1><p class="sub">Shown to customers on the website and used by the licence rules.</p>
+<form method="post" class="w820"><input type="hidden" name="csrf" value="{{ csrf }}">
+<div class="card"><h2>Your business</h2><div class="grid g2">
+  {{ f('business_name', 'Business name') }}{{ f('business_gstin', 'Your GSTIN', '(on invoices)') }}
+  {{ f('support_email', 'Support email', '', 'email') }}{{ f('support_phone', 'Support phone') }}
+</div></div>
+<div class="card"><h2>How customers pay you</h2><p class="small muted">Shown on the customer's "Pending payment" page with their KH- reference.</p><div class="grid g2">
+  {{ f('upi_id', 'UPI ID', '(e.g. name@okhdfcbank)') }}{{ f('bank_name', 'Bank name') }}
+  {{ f('bank_account_name', 'Account name') }}{{ f('bank_account_number', 'Account number') }}
+  {{ f('bank_ifsc', 'IFSC') }}{{ f('gst_percent', 'GST %', '(added to plan prices)') }}
+</div></div>
+<div class="card"><h2>Licence rules</h2><div class="grid g2">
+  {{ f('lease_hours', 'Login valid for (hours)', '(app asks to log in online again after this; 1–168)') }}
+  {{ f('grace_days', 'Grace days after expiry', '(0 = lock on the day after expiry)') }}
+  {{ f('trial_days', 'Default trial length (days)') }}
+  {{ f('computer_changes_per_month', 'Computer changes per month', '(self-service removals on the website)') }}
+</div></div>
+<button class="btn">Save settings</button>
+</form>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% from "_status.html" import pill %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1><p class="sub">{{ today|d }}{% if grace %} · grace period {{ grace }} days{% endif %}</p>
+<div class="grid g3 mb16">
+  <div class="stat big"><span>Monthly recurring revenue</span><b>{{ mrr|rupees }}</b><span class="small muted note">paying firms, excl. GST</span></div>
+  <div class="stat big"><span>Collected in {{ month_start.strftime('%B') }}</span><b>{{ collected|rupees }}</b><span class="small muted note">incl. GST</span></div>
+  <div class="stat big"><span>Firms</span><b>{{ total }}</b></div>
+</div>
+<div class="grid g6 mb20">
+  {% for code, label in [('active','Active'),('trial','Trial'),('grace','Grace'),('pending','Pending payment'),('expired','Expired'),('blocked','Blocked')] %}
+  <a class="stat" href="/firms?status={{ code }}"><span>{{ label }}</span><b>{{ counts[code] }}</b></a>
+  {% endfor %}
+</div>
+<div class="grid g2">
+  <div class="card"><h2>Ending in the next 7 days</h2>
+    <table><tr><th>Firm</th><th>Status</th><th>Ends</th></tr>
+    {% for firm, s in expiring %}<tr><td><a href="/firms/{{ firm.id }}">{{ firm.name }}</a><br><span class="small muted">{{ firm.mobile }}</span></td><td>{{ pill(s) }}</td><td>{{ firm.subscription.ends_on|d }}</td></tr>
+    {% else %}<tr><td colspan="3" class="empty">Nobody's subscription ends this week.</td></tr>{% endfor %}</table>
+  </div>
+  <div class="card"><h2>Waiting for payment</h2>
+    <table><tr><th>Firm</th><th>Reference</th><th>Registered</th></tr>
+    {% for firm in pending %}<tr><td><a href="/firms/{{ firm.id }}">{{ firm.name }}</a><br><span class="small muted">{{ firm.email }}</span></td><td class="mono">{{ firm.reference }}</td><td>{{ firm.created_at|dt }}</td></tr>
+    {% else %}<tr><td colspan="3" class="empty">No pending registrations.</td></tr>{% endfor %}</table>
+  </div>
+</div>
+<div class="card"><h2>Latest payments</h2>
+  <table><tr><th>Paid on</th><th>Firm</th><th>Plan</th><th class="num">Amount</th><th>Method</th><th>Covers</th></tr>
+  {% for p in recent %}<tr><td>{{ p.paid_on|d }}</td><td><a href="/firms/{{ p.firm_id }}">{{ p.firm.name }}</a></td><td>{{ p.plan.name }}</td><td class="num">{{ p.amount_paise|rupees }}</td><td>{{ METHODS[p.method] }}</td><td>{{ p.covers_from|d }} – {{ p.covers_to|d }}</td></tr>
+  {% else %}<tr><td colspan="6" class="empty">No payments recorded yet.</td></tr>{% endfor %}</table>
+</div>
+{% endblock %}

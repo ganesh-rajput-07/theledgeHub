@@ -1,0 +1,101 @@
+{% extends "base.html" %}{% from "_status.html" import pill %}{% from "_firm_fields.html" import fields %}
+{% block title %}{{ firm.name }}{% endblock %}
+{% block content %}
+{% set sub = firm.subscription %}
+<p class="small"><a href="/firms">← Firms</a></p>
+<div class="head"><div><h1>{{ firm.name }}</h1>
+<p class="sub">Reference <b class="mono">{{ firm.reference }}</b> · {{ firm.email }}{% if firm.mobile %} · {{ firm.mobile }}{% endif %}{% if firm.city %} · {{ firm.city }}{% endif %}</p></div>
+<div>{{ pill(status) }}</div></div>
+{% if firm.blocked %}<div class="msg err">Blocked: {{ firm.blocked_reason }}</div>{% endif %}
+
+<div class="grid g2">
+<div class="card"><h2>Subscription</h2>
+  {% if sub %}<dl class="kv">
+    <dt>Plan</dt><dd>{{ sub.plan.name }}{% if sub.is_trial %} <span class="pill p-trial">Trial</span>{% endif %}</dd>
+    <dt>Price they pay</dt><dd>{{ sub.price_paise|rupees }} / {{ {1:'month',3:'quarter',6:'half-year',12:'year'}[sub.billing_months] }} <span class="muted small">excl. GST</span></dd>
+    <dt>Computers allowed</dt><dd>{{ sub.computers_allowed }} <span class="muted small">({{ computers|length }} in use)</span></dd>
+    <dt>Access until</dt><dd><b>{{ sub.ends_on|d }}</b></dd>
+  </dl>{% else %}<p class="muted">No subscription yet. Waiting for the first payment (reference <b class="mono">{{ firm.reference }}</b>).</p>{% endif %}
+</div>
+<div class="card"><h2>Payments</h2>
+  <table><tr><th>Paid on</th><th class="num">Amount</th><th>Method</th><th>Covers</th></tr>
+  {% for p in payments %}<tr><td>{{ p.paid_on|d }}</td><td class="num">{{ p.amount_paise|rupees }}</td><td>{{ METHODS[p.method] }}{% if p.utr %}<br><span class="small muted mono">{{ p.utr }}</span>{% endif %}</td><td class="small">{{ p.plan.name }}<br>{{ p.covers_from|d }} – {{ p.covers_to|d }}</td></tr>
+  {% else %}<tr><td colspan="4" class="empty">No payments yet.</td></tr>{% endfor %}</table>
+</div>
+</div>
+
+<details class="panel" {{ 'open' if panel == 'payment' or (not panel and not sub) }}><summary>Record a payment (activate / renew)</summary><div class="body">
+  {% if plans %}
+  <form method="post" action="/firms/{{ firm.id }}/payment" id="payment-form" data-gst="{{ config.gst_percent }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <script type="application/json" id="plan-data">{{ plan_js|tojson }}</script>
+    {% set chosen = form.plan_id or (sub.plan_id|string if sub else plans[0].id|string) %}
+    <div class="grid g3">
+      <div class="field"><label>Plan</label><select name="plan_id">{% for p in plans %}<option value="{{ p.id }}" {{ 'selected' if chosen == p.id|string }}>{{ p.name }} · {{ p.price_paise|rupees }}</option>{% endfor %}</select></div>
+      <div class="field"><label>Computers</label><input name="computers" inputmode="numeric" value="{{ form.computers or (sub.computers_allowed if sub else plans[0].computers_included) }}"></div>
+      <div class="field"><label>Periods paid <span class="hint">(e.g. 3 months)</span></label><input name="periods" inputmode="numeric" value="{{ form.periods or 1 }}"></div>
+    </div>
+    <div class="quote" id="quote">Price list total appears here.</div>
+    <div class="grid g3">
+      <div class="field"><label>Amount received (₹, incl. GST)</label><input name="amount" inputmode="decimal" value="{{ form.amount or '' }}" required></div>
+      <div class="field"><label>Method</label><select name="method">{% for k, label in METHODS.items() %}<option value="{{ k }}" {{ 'selected' if (form.method or 'upi') == k }}>{{ label }}</option>{% endfor %}</select></div>
+      <div class="field"><label>Paid on</label><input name="paid_on" type="date" value="{{ form.paid_on or today.isoformat() }}" max="{{ today.isoformat() }}"></div>
+    </div>
+    <div class="grid g2">
+      <div class="field"><label>UTR / transaction reference</label><input name="utr" value="{{ form.utr or '' }}" placeholder="From the bank / UPI app"></div>
+      <div class="field"><label>Note</label><input name="note" value="{{ form.note or '' }}"></div>
+    </div>
+    <p class="small muted">Renewing before expiry continues from the current end date, so no days are lost. After expiry or a trial, the period starts today.</p>
+    <button class="btn">Record payment</button>
+  </form>
+  {% else %}<p>Create a plan first under <a href="/plans">Plans &amp; prices</a>.</p>{% endif %}
+</div></details>
+
+<details class="panel" {{ 'open' if panel == 'trial' }}><summary>Start a free trial</summary><div class="body">
+  {% if plans %}<form method="post" action="/firms/{{ firm.id }}/trial"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="grid g3">
+      <div class="field"><label>Plan</label><select name="plan_id">{% for p in plans %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label>Days</label><input name="days" inputmode="numeric" value="{{ form.days or config.trial_days }}"></div>
+      <div class="field"><label>Computers</label><input name="computers" inputmode="numeric" value="{{ form.computers or 1 }}"></div>
+    </div>
+    <button class="btn ghost">Start trial</button></form>{% endif %}
+</div></details>
+
+{% if sub %}<details class="panel" {{ 'open' if panel == 'adjust' }}><summary>Adjust end date or computers (corrections, goodwill days)</summary><div class="body">
+  <form method="post" action="/firms/{{ firm.id }}/adjust"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="grid g3">
+      <div class="field"><label>Access until</label><input type="date" name="ends_on" value="{{ form.ends_on or sub.ends_on.isoformat() }}"></div>
+      <div class="field"><label>Computers allowed</label><input name="computers" inputmode="numeric" value="{{ form.computers or sub.computers_allowed }}"></div>
+      <div class="field"><label>Reason</label><input name="reason" value="{{ form.reason or '' }}" placeholder="e.g. 5 days for installation delay" required></div>
+    </div>
+    <button class="btn ghost">Save change</button></form>
+</div></details>{% endif %}
+
+<details class="panel" {{ 'open' if panel == 'computers' }}><summary>Computers ({{ computers|length }}{% if sub %} of {{ sub.computers_allowed }}{% endif %})</summary><div class="body">
+  <table><tr><th>Name</th><th>ID</th><th>App version</th><th>First seen</th><th>Last login</th><th></th></tr>
+  {% for c in computers %}<tr><td>{{ c.name or '—' }}{% if c.blocked %} <span class="pill p-blocked">Blocked</span>{% endif %}</td><td class="mono small">{{ c.machine_hash[:12] }}</td><td>{{ c.app_version }}</td><td>{{ c.first_seen|dt }}</td><td>{{ c.last_seen|dt }}</td>
+    <td><form method="post" action="/firms/{{ firm.id }}/computers/{{ c.id }}" class="row"><input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="btn ghost small" name="op" value="{{ 'unblock' if c.blocked else 'block' }}">{{ 'Unblock' if c.blocked else 'Block' }}</button>
+      <button class="btn ghost small" name="op" value="remove" data-confirm="Remove this computer? It frees a seat; the app on it must log in again.">Remove</button></form></td></tr>
+  {% else %}<tr><td colspan="6" class="empty">No computers yet. They appear here when the desktop app logs in.</td></tr>{% endfor %}</table>
+</div></details>
+
+<details class="panel" {{ 'open' if panel == 'edit' }}><summary>Edit firm details</summary><div class="body">
+  <form method="post" action="/firms/{{ firm.id }}/edit"><input type="hidden" name="csrf" value="{{ csrf }}">
+    {{ fields(form if panel == 'edit' else {}, firm) }}<button class="btn ghost">Save details</button></form>
+</div></details>
+
+<details class="panel" {{ 'open' if panel == 'block' }}><summary>{{ 'Unblock firm' if firm.blocked else 'Block firm' }}</summary><div class="body">
+  <form method="post" action="/firms/{{ firm.id }}/block"><input type="hidden" name="csrf" value="{{ csrf }}">
+  {% if firm.blocked %}<input type="hidden" name="blocked" value="0"><button class="btn ghost">Unblock</button>
+  {% else %}<input type="hidden" name="blocked" value="1">
+    <p class="small muted">Blocks every login for this firm, even with time left. Takes effect at their next login (at most {{ config.lease_hours }} hours).</p>
+    <div class="field"><label>Reason</label><input name="reason" required placeholder="e.g. licence shared with another firm"></div>
+    <button class="btn danger" data-confirm="Block {{ firm.name }}?">Block firm</button>{% endif %}</form>
+</div></details>
+
+<div class="card"><h2>History</h2>
+  <table>{% for e in events %}<tr><td class="small muted w170">{{ e.created_at|dt }}</td><td>{{ e.summary }}</td><td class="small muted">{{ e.admin.name if e.admin else 'System' }}</td></tr>
+  {% else %}<tr><td class="empty">Nothing yet.</td></tr>{% endfor %}</table>
+</div>
+{% endblock %}

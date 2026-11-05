@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block title %}Activity log{% endblock %}
+{% block content %}
+<h1>Activity log</h1><p class="sub">Every sign-in, price change, payment, trial, block and correction.</p>
+<div class="card flush"><table>
+<tr><th>When</th><th>Who</th><th>What</th><th>Firm</th><th>IP</th></tr>
+{% for e in events %}<tr><td class="small nowrap">{{ e.created_at|dt }}</td><td class="small">{{ e.admin.name if e.admin else 'System' }}</td><td>{{ e.summary }}</td>
+<td class="small">{% if e.firm %}<a href="/firms/{{ e.firm_id }}">{{ e.firm.name }}</a>{% endif %}</td><td class="small mono muted">{{ e.ip or '' }}</td></tr>
+{% else %}<tr><td colspan="5" class="empty">Nothing recorded yet.</td></tr>{% endfor %}
+</table></div>
+<div class="row">{% if page > 1 %}<a class="btn ghost" href="/activity?page={{ page - 1 }}">← Newer</a>{% endif %}{% if more %}<a class="btn ghost" href="/activity?page={{ page + 1 }}">Older →</a>{% endif %}</div>
+{% endblock %}

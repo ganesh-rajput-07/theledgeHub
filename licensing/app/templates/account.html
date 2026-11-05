@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}My password{% endblock %}
+{% block content %}
+<h1>My password</h1><p class="sub">{{ me.email }}</p>
+<form method="post" class="card w420"><input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="field"><label>Current password</label><input name="current_password" type="password" required autocomplete="current-password"></div>
+  <div class="field"><label>New password <span class="hint">(12+ characters)</span></label><input name="new_password" type="password" required minlength="12" autocomplete="new-password"></div>
+  <div class="field"><label>Repeat new password</label><input name="confirm_password" type="password" required autocomplete="new-password"></div>
+  <button class="btn">Change password</button>
+</form>
+{% endblock %}

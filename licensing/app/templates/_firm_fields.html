@@ -1,0 +1,12 @@
+{% macro fields(form, firm) %}
+{% macro v(key) %}{{ form[key] if key in form else (firm[key] if firm else '') }}{% endmacro %}
+<div class="grid g2">
+  <div class="field"><label>Firm name</label><input name="name" value="{{ v('name') }}" required placeholder="Shah &amp; Associates"></div>
+  <div class="field"><label>Contact person</label><input name="contact_name" value="{{ v('contact_name') }}" placeholder="CA Rakesh Shah"></div>
+  <div class="field"><label>Email <span class="hint">(their login)</span></label><input name="email" type="email" value="{{ v('email') }}" required></div>
+  <div class="field"><label>Mobile</label><input name="mobile" value="{{ v('mobile') }}" placeholder="98250 12345"></div>
+  <div class="field"><label>City</label><input name="city" value="{{ v('city') }}" placeholder="Surat"></div>
+  <div class="field"><label>GSTIN <span class="hint">(for their invoice, optional)</span></label><input name="gstin" value="{{ v('gstin') }}" maxlength="15"></div>
+</div>
+<div class="field"><label>Private notes</label><textarea name="notes">{{ v('notes') }}</textarea></div>
+{% endmacro %}

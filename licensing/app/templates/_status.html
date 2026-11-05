@@ -1,0 +1,1 @@
+{% macro pill(s) %}<span class="pill p-{{ s.code }}">{{ s.label }}{% if s.days_left is not none %} · {{ s.days_left }} day{{ '' if s.days_left == 1 else 's' }} left{% endif %}</span>{% endmacro %}

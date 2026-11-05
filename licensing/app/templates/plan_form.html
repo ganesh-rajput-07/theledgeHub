@@ -1,0 +1,38 @@
+{% extends "base.html" %}{% block title %}{{ plan.name if plan else 'New plan' }}{% endblock %}
+{% macro v(key, current) %}{{ form[key] if key in form else current }}{% endmacro %}
+{% block content %}
+<p class="small"><a href="/plans">← Plans &amp; prices</a></p>
+<h1>{{ plan.name if plan else 'New plan' }}</h1>
+<p class="sub">{% if plan %}{{ subscribers }} firm(s) on this plan. A new price applies to new sales and renewals only.{% else %}Prices exclude GST.{% endif %}</p>
+<form method="post" class="card w760">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="grid g2">
+    <div class="field"><label>Name</label><input name="name" value="{{ v('name', plan.name if plan else '') }}" required placeholder="Starter"></div>
+    <div class="field"><label>Code <span class="hint">(stable id, lowercase)</span></label><input name="code" value="{{ v('code', plan.code if plan else '') }}" required placeholder="starter"></div>
+  </div>
+  <div class="field"><label>Description <span class="hint">(shown on the pricing page)</span></label><input name="description" value="{{ v('description', plan.description if plan else '') }}" placeholder="For small CA offices"></div>
+  <div class="grid g3">
+    <div class="field"><label>Price (₹, excl. GST)</label><input name="price" inputmode="decimal" value="{{ v('price', (plan.price_paise|rupees(false)) if plan else '') }}" required placeholder="1,499"></div>
+    <div class="field"><label>Billing period</label><select name="billing_months">
+      {% set bm = (form.billing_months or (plan.billing_months if plan else 1))|int %}
+      {% for m, label in [(1,'Monthly'),(3,'Quarterly'),(6,'Half-yearly'),(12,'Yearly')] %}<option value="{{ m }}" {{ 'selected' if bm == m }}>{{ label }}</option>{% endfor %}
+    </select></div>
+    <div class="field"><label>Order on pricing page</label><input name="sort_order" inputmode="numeric" value="{{ v('sort_order', plan.sort_order if plan else 0) }}"></div>
+  </div>
+  <div class="grid g3">
+    <div class="field"><label>Computers included</label><input name="computers_included" inputmode="numeric" value="{{ v('computers_included', plan.computers_included if plan else 1) }}" required></div>
+    <div class="field"><label>Each extra computer (₹ / period)</label><input name="extra_computer_price" inputmode="decimal" value="{{ v('extra_computer_price', (plan.extra_computer_paise|rupees(false)) if plan else '0') }}"></div>
+    <div class="field"></div>
+  </div>
+  <div class="grid g3">
+    <div class="field"><label>Max users <span class="hint">(empty = unlimited)</span></label><input name="max_users" inputmode="numeric" value="{{ v('max_users', plan.max_users if plan and plan.max_users else '') }}"></div>
+    <div class="field"><label>Invoices / month <span class="hint">(empty = unlimited)</span></label><input name="invoice_limit" inputmode="numeric" value="{{ v('invoice_limit', plan.invoice_limit if plan and plan.invoice_limit else '') }}"></div>
+    <div class="field"></div>
+  </div>
+  {% set active = (form.is_active == 'on') if form else (plan.is_active if plan else true) %}
+  {% set public = (form.is_public == 'on') if form else (plan.is_public if plan else true) %}
+  <div class="field check"><input type="checkbox" id="is_active" name="is_active" {{ 'checked' if active }}><label for="is_active" class="m0">On sale <span class="hint">(can be chosen for new payments)</span></label></div>
+  <div class="field check"><input type="checkbox" id="is_public" name="is_public" {{ 'checked' if public }}><label for="is_public" class="m0">Show on the website pricing page <span class="hint">(untick for private/custom deals)</span></label></div>
+  <div class="row"><button class="btn">Save plan</button><a class="btn ghost" href="/plans">Cancel</a></div>
+</form>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% block title %}Plans & prices{% endblock %}
+{% block content %}
+<div class="head"><div><h1>Plans &amp; prices</h1>
+<p class="sub">Prices exclude GST ({{ gst }}%). Changing a price affects new sales and renewals only; firms keep the price they paid for until their period ends.</p></div>
+<a class="btn" href="/plans/new">+ New plan</a></div>
+<div class="card flush"><table>
+<tr><th>Plan</th><th class="num">Price</th><th>Billing</th><th class="num">Computers</th><th class="num">Extra computer</th><th>Limits</th><th class="num">Firms</th><th>Status</th><th></th></tr>
+{% for p in plans %}<tr>
+  <td><b>{{ p.name }}</b> <span class="small muted mono">{{ p.code }}</span>{% if p.description %}<br><span class="small muted">{{ p.description }}</span>{% endif %}</td>
+  <td class="num"><b>{{ p.price_paise|rupees }}</b></td>
+  <td>{{ {1:'Monthly',3:'Quarterly',6:'Half-yearly',12:'Yearly'}[p.billing_months] }}</td>
+  <td class="num">{{ p.computers_included }}</td>
+  <td class="num">{{ p.extra_computer_paise|rupees if p.extra_computer_paise else '—' }}</td>
+  <td class="small">{{ (p.max_users ~ ' users') if p.max_users else 'Unlimited users' }}<br>{{ (p.invoice_limit ~ ' invoices/month') if p.invoice_limit else 'Unlimited invoices' }}</td>
+  <td class="num">{{ subscribers.get(p.id, 0) }}</td>
+  <td>{% if p.is_active %}<span class="pill p-active">On sale</span>{% else %}<span class="pill p-off">Not sold</span>{% endif %}{% if not p.is_public %}<br><span class="pill p-off">Hidden</span>{% endif %}</td>
+  <td><a class="btn ghost small" href="/plans/{{ p.id }}">Edit</a></td>
+</tr>{% else %}<tr><td colspan="9" class="empty">No plans yet. Create your first plan to start selling.</td></tr>{% endfor %}
+</table></div>
+{% endblock %}
