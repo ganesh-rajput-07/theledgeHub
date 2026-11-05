@@ -16,6 +16,8 @@ from sqlalchemy.orm import Session
 from app.core.rate_limit import client_ip
 from app.core.security import ACCESS, TokenError, decode_token
 from app.database.session import get_db
+from app.licensing import lease as leases
+from app.licensing import service as licensing
 from app.models import (
     MANAGER_ROLES,
     Conversation,
@@ -56,6 +58,11 @@ def get_current_user(
     user = db.get(User, claims.user_id)
     if user is None or not user.is_active:
         raise _unauthorized("Account not found or disabled")
+    if licensing.desktop_mode():
+        # The licence is for the person who signed in online; other local accounts can't ride on it.
+        lease = leases.current()
+        if lease is None or lease.email != user.email.strip().lower():
+            raise _unauthorized("Sign in again to continue")
     return user
 
 

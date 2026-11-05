@@ -1,12 +1,15 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.database.session import engine
+from app.licensing import lease as leases
+from app.licensing import service as licensing
 
 settings = get_settings()
 
@@ -32,6 +35,27 @@ app = FastAPI(
     version="0.1.0",
 )
 app.include_router(api_router)
+
+# Reachable without a licence: sign-in, and the status the app needs to show "licence ended" screens.
+LICENCE_FREE = {"/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/licence/status"}
+
+
+@app.middleware("http")
+async def require_licence(request: Request, call_next):
+    """Installed app: every API call needs a valid lease. It is checked here, not only at sign-in, so a lease
+    running out mid-session stops the app until the user signs in online again."""
+    if (
+        licensing.desktop_mode()
+        and request.url.path.startswith("/api/")
+        and request.url.path not in LICENCE_FREE
+        and leases.current() is None
+    ):
+        return JSONResponse(
+            {"detail": "Your licence session has ended. Sign in again (internet needed)."},
+            status_code=402,
+            headers={"X-Licence-Code": "licence_required"},
+        )
+    return await call_next(request)
 
 
 @app.get("/")
