@@ -6,14 +6,24 @@ from fastapi.staticfiles import StaticFiles
 
 from app.admin.auth import LoginRequired
 from app.admin.routes import router as admin_router
+from app.api import router as api_router
+from app.site.routes import CustomerLoginRequired
+from app.site.routes import router as site_router
 
 app = FastAPI(title="KnowledgeHub Licensing", docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 app.include_router(admin_router)
+app.include_router(site_router)
+app.include_router(api_router)
 
 
 @app.exception_handler(LoginRequired)
 def to_login(request: Request, _exc: LoginRequired):
+    return RedirectResponse("/admin/login", status_code=303)
+
+
+@app.exception_handler(CustomerLoginRequired)
+def to_customer_login(request: Request, _exc: CustomerLoginRequired):
     return RedirectResponse("/login", status_code=303)
 
 
