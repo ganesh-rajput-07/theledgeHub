@@ -7,6 +7,7 @@ Related documents:
 [CA-pain-discovery.md](CA-pain-discovery.md) (finding the real pain) ·
 [architecture.md](architecture.md) (technical design and security model) ·
 [evaluation.md](evaluation.md) (search quality measurements) ·
+[ROADMAP.md](ROADMAP.md) (everything planned, in order) ·
 Demo files: [`demo/`](../demo) (deck, playbook, sample files, screenshots)
 
 ---
