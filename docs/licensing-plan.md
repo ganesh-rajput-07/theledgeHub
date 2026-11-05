@@ -1,7 +1,7 @@
 # Offline desktop app + licence management: plan
 
 _5 Nov 2026._ **Status:** licence server built (`licensing/`, see its README): admin panel, customer website and app login
-API with signed leases. Next: the licence check inside the desktop app, then the Windows installer. Pricing research: [CA-pricing-research.md](CA-pricing-research.md).
+API with signed leases. The licence check inside the app is built too (`LICENCE_MODE=desktop`). Next: the Windows installer. Pricing research: [CA-pricing-research.md](CA-pricing-research.md).
 
 **Decisions taken:**
 

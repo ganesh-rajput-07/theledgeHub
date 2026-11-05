@@ -91,6 +91,23 @@ must verify the signature with the public key, check `aud`, `iss` and `mid`, kee
 and count `ttl` down on its own uptime clock (not the wall clock). `app/lease.py: verify()` is the reference check.
 `GET /api/app/v1/public-key` returns the public key.
 
+## The desktop app side (product app)
+
+The product app enforces the licence when started with `LICENCE_MODE=desktop` (see `backend/.env.example`):
+
+| Setting | Value |
+| --- | --- |
+| `LICENCE_MODE` | `desktop` |
+| `LICENCE_SERVER_URL` | this server, e.g. `https://licence.your-domain` |
+| `LICENCE_PUBLIC_KEY_FILE` | the public key printed by `generate-keys` (default `backend/app/licensing/licence_public_key.pem`) |
+| `APP_VERSION` | sent at login; compared with *Minimum version allowed* |
+| `NEXT_PUBLIC_LICENCE_MODE=desktop`, `NEXT_PUBLIC_LICENCE_SITE_URL` | frontend build: hides sign-up, shows the licence banner |
+
+What happens in the app: sign-in goes to `/api/app/v1/login`; the lease is verified (signature, audience, this
+computer) and kept in memory; its time counts down on the uptime clock; every API call returns `402` once it has
+run out, which sends the user back to sign-in; the firm and user are created locally on first sign-in; signing out
+or restarting forgets the lease.
+
 ## Tests
 
 ```bash
