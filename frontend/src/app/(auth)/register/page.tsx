@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 
 import { Button, Card, ErrorText, Field, Input } from "@/components/ui";
 import { authRequest } from "@/lib/api";
+import { DESKTOP, SITE_URL } from "@/lib/licence";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -25,6 +26,28 @@ export default function RegisterPage() {
       setError(err);
       setLoading(false);
     }
+  }
+
+  if (DESKTOP) {
+    return (
+      <Card className="space-y-3 p-6 text-sm">
+        <h1 className="text-base font-semibold">Create your account on our website</h1>
+        <p className="text-slate-500">
+          In the installed app, accounts and subscriptions are managed on the KnowledgeHub website. Then sign in here
+          with the same email and password.
+        </p>
+        {SITE_URL && (
+          <a href={SITE_URL} target="_blank" rel="noreferrer" className="font-medium text-indigo-600 hover:text-indigo-500">
+            Open the website
+          </a>
+        )}
+        <p>
+          <Link href="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
+            Back to sign in
+          </Link>
+        </p>
+      </Card>
+    );
   }
 
   return (
